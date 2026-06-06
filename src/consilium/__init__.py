@@ -1,5 +1,6 @@
 from consilium.modes.dialectic import run_dialectic
 from consilium.modes.sequential import run_sequential
+from consilium.modes.trias import run_trias
 from consilium.models import DeliberationInput, Report
 
 
@@ -15,4 +16,6 @@ def deliberate(
         return run_sequential(inp)
     if mode == "dialectic":
         return run_dialectic(inp, skeptic_can_override=skeptic_can_override)
-    raise ValueError(f"Unknown mode: {mode!r}. Supported: sequential, dialectic")
+    if mode == "trias":
+        return run_trias(inp)
+    raise ValueError(f"Unknown mode: {mode!r}. Supported: sequential, dialectic, trias")

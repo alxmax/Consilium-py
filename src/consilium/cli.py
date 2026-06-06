@@ -17,7 +17,7 @@ def main() -> None:
 @main.command("deliberate")
 @click.argument("proposal")
 @click.option("--context", "-c", multiple=True, help="Context files (path)")
-@click.option("--mode", default="sequential", type=click.Choice(["sequential", "dialectic"]))
+@click.option("--mode", default="sequential", type=click.Choice(["sequential", "dialectic", "trias"]))
 @click.option("--model", default="claude-sonnet-4-6")
 @click.option("--skeptic-can-override", is_flag=True, default=False, help="Allow Skeptic to downgrade verdict (dialectic only)")
 @click.option("--output", type=click.Choice(["text", "json"]), default="text")
@@ -46,7 +46,7 @@ def deliberate_cmd(
 
 @main.command("check")
 @click.option("--diff", default=None, help="Git ref for diff (e.g. HEAD~1, main). Omit for staged changes.")
-@click.option("--mode", default="sequential", type=click.Choice(["sequential", "dialectic"]))
+@click.option("--mode", default="sequential", type=click.Choice(["sequential", "dialectic", "trias"]))
 @click.option("--model", default="claude-sonnet-4-6")
 @click.option("--skeptic-can-override", is_flag=True, default=False)
 @click.option("--output", type=click.Choice(["text", "json"]), default="text")
