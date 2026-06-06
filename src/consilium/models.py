@@ -17,6 +17,14 @@ class VoiceOutput(BaseModel):
     score: float = 0.5
 
 
+class SkepticObjection(BaseModel):
+    can_object: bool
+    failure_mode: str | None = None
+    addressable: Literal["in_place", "requires_redesign", "unaddressable"] | None = None
+    concrete_concerns: list[str] = []
+    notes: str = ""
+
+
 class Report(BaseModel):
     verdict: Literal["GO", "MODIFY", "STOP", "BLOCK", "ESCALATE"]
     confidence: float
@@ -25,3 +33,4 @@ class Report(BaseModel):
     chosen: str | None = None
     pipeline_executed: bool = True
     mode: str = "sequential"
+    skeptic: SkepticObjection | None = None
