@@ -1,0 +1,23 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "consilium-py"
+version = "0.1.0"
+description = "Dialectical code-change deliberation as a Python package"
+requires-python = ">=3.11"
+dependencies = [
+    "anthropic>=0.25.0",
+    "click>=8.1",
+    "pydantic>=2.0",
+]
+
+[project.optional-dependencies]
+dev = ["pyright"]
+
+[project.scripts]
+consilium = "consilium.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/consilium"]
