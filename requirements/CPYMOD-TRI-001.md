@@ -1,6 +1,6 @@
 ---
 id: CPYMOD-TRI-001
-status: baseline
+status: confirmed
 layer: feature
 owner: human
 depends_on: [CPYBUS-VOI-001, CPYBUS-AGG-001]
@@ -21,11 +21,12 @@ Dispatches three personality-biased Sequential deliberations in parallel (Pionee
 - When a winner exists, the verdict and recommendation are taken from the winning personality's `Report`.
 - The returned `Report` shall contain exactly three `VoiceOutput` entries, one per personality (pioneer, architect, steward), not the 9 individual voice calls.
 - The `mode` field of the returned `Report` shall be `"trias"`.
+- The democratic vote is over `chosen` candidate IDs, not over verdicts. When two personalities agree on `chosen`, the winning personality's `Report` (with its verdict) is used verbatim. The public API is synchronous (`asyncio.run` inside `run_trias`); making it async would require all callers to be async.
+
 
 ## WHAT — Verify intent
 
-- When all three personalities choose the same candidate but one returns `MODIFY` and two return `GO`, which verdict wins? Currently the winner's personality verdict is used, so it would be `GO` (majority by `chosen`, not by verdict).
-- Should `asyncio.run` be used directly, or should the public API be async? Currently synchronous (`asyncio.run` inside `run_trias`).
+None — doc is unambiguous.
 
 ## HOW — Acceptance
 

@@ -1,6 +1,6 @@
 ---
 id: CPYMOD-DIA-001
-status: baseline
+status: confirmed
 layer: feature
 owner: human
 depends_on: [CPYMOD-SEQ-001, CPYBUS-VOI-001]
@@ -22,10 +22,12 @@ Runs Sequential to produce a base report, then dispatches the Skeptic voice on t
   - `addressable="requires_redesign"` → `MODIFY`, confidence capped at 0.5
   - `addressable="unaddressable"` → `BLOCK`, confidence set to 0.1
 - The `mode` field of the returned `Report` shall be `"dialectic"`.
+- The Skeptic always runs, including when Sequential returns `BLOCK` or `ESCALATE`. When `chosen` is None, the Skeptic input has an empty chosen field and is expected to return `can_object: false`.
+
 
 ## WHAT — Verify intent
 
-- Should the Skeptic run even when Sequential returns `BLOCK` or `ESCALATE`? Currently it always runs. The Consilium skill skips it only when `chosen` is None — but `BLOCK` can also have `chosen=None`.
+None — doc is unambiguous.
 
 ## HOW — Acceptance
 

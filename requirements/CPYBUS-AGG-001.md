@@ -1,6 +1,6 @@
 ---
 id: CPYBUS-AGG-001
-status: baseline
+status: confirmed
 layer: bus
 owner: human
 depends_on: [CPYBUS-VOI-001]
@@ -21,13 +21,12 @@ Converts the three raw voice text outputs into a `Report` (a Pydantic model). Ru
   6. `scale_up` meta-recommendation → `ADAPT_EXTENDED` → mapped to `MODIFY`
   7. Default → `AGGREGATE` (normal scoring)
 - In the `AGGREGATE` path, `confidence` shall equal `confidence_methodology` (0.0–1.0). A `confidence_methodology ≥ 0.7` maps to verdict `GO`; `≥ 0.4` to `MODIFY`; below to `STOP`.
-- Non-`AGGREGATE` results map as: `BLOCK`→`BLOCK`, `REWORK`→`MODIFY`, `ESCALATE`→`ESCALATE`, `ADAPT_SHORT`→`GO`, `ADAPT_EXTENDED`→`MODIFY`.
+- Non-`AGGREGATE` results map as: `BLOCK`→`BLOCK`, `REWORK`→`MODIFY`, `ESCALATE`→`ESCALATE`, `ADAPT_SHORT`→`GO`, `ADAPT_EXTENDED`→`MODIFY`. `REWORK` is not an exposed verdict in `Report`; it maps to `MODIFY` so callers receive a consistent surface. The `recommendation` field carries the rework context. Bypass verdicts (BLOCK, REWORK, ESCALATE) carry categorical confidence values (e.g. `0.1` for BLOCK); no scoring floor is applied to them.
 - The returned `Report` shall contain one `VoiceOutput` per voice (conservator, generator, control) with `vote`, `score`, `reasoning`, and `concerns` fields populated from the parsed JSON.
 
 ## WHAT — Verify intent
 
-- Should `REWORK` produce `MODIFY` or its own `REWORK` verdict? Currently `REWORK` maps to `MODIFY`.
-- Should confidence floor be applied in non-`AGGREGATE` cases? Currently it is not.
+None — doc is unambiguous.
 
 ## HOW — Acceptance
 

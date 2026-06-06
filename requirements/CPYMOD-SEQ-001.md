@@ -1,6 +1,6 @@
 ---
 id: CPYMOD-SEQ-001
-status: baseline
+status: confirmed
 layer: feature
 owner: human
 depends_on: [CPYBUS-VOI-001, CPYBUS-AGG-001]
@@ -16,10 +16,12 @@ Runs Conservator, Generator, and Control in a fixed single-context chain. Each v
 - Each voice call shall use the system prompt from `prompts/voices/{name}.md` with the proposal and optional context in the user message.
 - The function shall return the `Report` produced by `aggregate_sequential`.
 - The `mode` field of the returned `Report` shall be `"sequential"`.
+- Proposal language is not constrained. Prompts are English-only; non-English proposals work but voice responses may mix languages.
+
 
 ## WHAT — Verify intent
 
-- Should the proposal language be English-only, or multilingual? The prompts are in English; a Romanian proposal will work but responses may mix languages.
+None — doc is unambiguous.
 
 ## HOW — Acceptance
 

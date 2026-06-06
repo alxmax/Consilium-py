@@ -1,6 +1,6 @@
 ---
 id: CPYEXT-LG-001
-status: baseline
+status: confirmed
 layer: feature
 owner: human
 depends_on: [CPYBUS-API-001, CPYBUS-VOI-001, CPYBUS-AGG-001]
@@ -19,10 +19,12 @@ Optional `[langgraph]` extra that re-expresses the Conservator→Generator→Con
 - The `mode` field of the returned `Report` shall be `"langgraph"`.
 - `run_langgraph` shall be additive: `run_sequential()` is not modified. Both routes produce equivalent `Report` verdicts for the same input.
 - When `langgraph` is not installed, importing `langgraph_mode` shall raise `ImportError` with a `pip install consilium-py[langgraph]` hint.
+- `mode="langgraph"` is available for both `consilium deliberate` and `consilium check` (both CLI Choice lists include it; no CLI-specific restriction applies).
+
 
 ## WHAT — Verify intent
 
-- Should `mode="langgraph"` also be available for `consilium check`? Currently yes (both CLI Choice lists include it).
+None — doc is unambiguous.
 
 ## HOW — Acceptance
 

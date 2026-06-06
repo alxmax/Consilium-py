@@ -1,6 +1,6 @@
 ---
 id: CPYBUS-CLI-001
-status: baseline
+status: confirmed
 layer: bus
 owner: human
 depends_on: [CPYBUS-API-001]
@@ -14,16 +14,19 @@ Exposes the deliberation engine as a terminal command (`consilium`) with two sub
 
 - `consilium deliberate "<proposal>"` shall call `deliberate()` with the given proposal and print verdict, confidence, mode, and recommendation in text format, or full JSON with `--output json`.
 - `--context <path>` (repeatable) shall read each file and concatenate its content into the `context` argument. Multiple `-c` flags are supported.
-- `--mode` shall accept `sequential` (default), `dialectic`, or `trias`.
+- `--mode` shall accept `sequential` (default), `dialectic`, `trias`, and `langgraph`.
+- `--model` shall default to `claude-sonnet-4-6` and also read the `CONSILIUM_MODEL` env var (Click `envvar=`), making `export CONSILIUM_MODEL=openai/gpt-4o` equivalent to `--model openai/gpt-4o`.
 - `--skeptic-can-override` (flag, Dialectic only) shall set `skeptic_can_override=True`.
+- `--rag` (flag) shall pass `rag=True` to `deliberate()`, enabling RAG context injection.
 - `consilium check --diff <ref>` shall run `git diff <ref>`, use the diff as context, and deliberate with the proposal `"Review this diff (git diff <ref>)"`.
 - `consilium check` (no `--diff`) shall run `git diff --staged` and deliberate on staged changes.
-- If the diff is empty, `check` shall exit with an error message rather than calling the API.
+- If the diff is empty, `check` shall exit with an error ("No diff found.") rather than calling the API. Deliberating an empty diff has no meaningful output.
 - Non-zero exit codes from `git diff` shall propagate as `ClickException`.
+- `consilium index` shall index all runs in `~/.consilium/runs/` into the ChromaDB vector store (requires `[rag]` extra).
 
 ## WHAT — Verify intent
 
-- Should `consilium check` with an empty working tree and no staged changes succeed silently or error? Currently it errors with "No diff found."
+None — doc is unambiguous.
 
 ## HOW — Acceptance
 

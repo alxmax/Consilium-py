@@ -25,3 +25,6 @@ consilium = "consilium.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/consilium"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]

@@ -1,6 +1,6 @@
 ---
 id: CPYEXT-RAG-001
-status: baseline
+status: confirmed
 layer: feature
 owner: human
 depends_on: [CPYBUS-API-001, CPYBUS-VOI-001]
@@ -17,11 +17,13 @@ Optional `[rag]` extra that indexes past deliberation runs into a ChromaDB vecto
 - `retrieve(proposal, k=3, max_distance=0.35)` shall return at most `k` formatted snippets whose cosine distance to the query is ≤ `max_distance`. If the index is empty, print a user-visible message to stderr and return `[]`. If no run qualifies (all distances > threshold), return `[]`.
 - `build_rag_context(proposal)` shall call `retrieve()` and return a `SIMILAR PAST DECISIONS:` block, or `""` if empty.
 - When `chromadb` is not installed, any call into the RAG module shall raise `ImportError` with a `pip install consilium-py[rag]` hint — not silently skip.
-- The RAG context block, when non-empty, shall be prepended to `inp.context` before voices run. Its ordering relative to user-supplied `--context` must be documented.
+- The RAG context block, when non-empty, shall be prepended to `inp.context` before voices run, ahead of any user-supplied `--context` content.
+- The ChromaDB store is global (`~/.consilium/chroma/`). A per-project store (`.consilium/chroma/` in the repo) would be more isolated but requires project-root detection; global is simpler and sufficient for the current scope.
+
 
 ## WHAT — Verify intent
 
-- Should the index be scoped per-project (e.g. `.consilium/chroma/` in the repo) or global (`~/.consilium/chroma/`)? Current design chooses global; a per-project store would be more isolated.
+None — doc is unambiguous.
 
 ## HOW — Acceptance
 
