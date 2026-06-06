@@ -1,4 +1,8 @@
 # implements: CPYBUS-API-001
+from __future__ import annotations
+
+import os
+
 from consilium.modes.dialectic import run_dialectic
 from consilium.modes.sequential import run_sequential
 from consilium.modes.trias import run_trias
@@ -15,6 +19,7 @@ def deliberate(
     skeptic_can_override: bool = False,
     rag: bool = False,
 ) -> Report:
+    model = os.environ.get("CONSILIUM_MODEL", model)
     # RAG: prepend similar past decisions to context before voices run.
     if rag:
         from consilium.rag import build_rag_context, index, new_run_id, save_run  # noqa: PLC0415

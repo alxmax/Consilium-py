@@ -53,6 +53,24 @@ def extract_json(text: str) -> dict[str, Any]:
 
 
 def call_voice(_voice_name: str, system_prompt: str, user_msg: str, model: str) -> str:
+    if "/" in model:
+        try:
+            import litellm  # noqa: PLC0415
+        except ImportError:
+            raise ImportError(
+                f"Model {model!r} requires LiteLLM. "
+                "Run: pip install 'consilium-py[litellm]'"
+            )
+        response = litellm.completion(
+            model=model,
+            max_tokens=4096,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_msg},
+            ],
+        )
+        return response.choices[0].message.content or ""
+
     response = _get_client().messages.create(
         model=model,
         max_tokens=4096,
