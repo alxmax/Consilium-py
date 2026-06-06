@@ -1,0 +1,31 @@
+{
+  "verdict": "GO",
+  "confidence": 1.0,
+  "recommendation": "Deliberation completed without anomalies",
+  "voices": [
+    {
+      "voice": "conservator",
+      "vote": "GO",
+      "reasoning": "Low risk change. Net concern: 0.2.",
+      "concerns": [],
+      "score": 0.8
+    },
+    {
+      "voice": "generator",
+      "vote": "GO",
+      "reasoning": "Proposed approach_a as the preferred solution.",
+      "concerns": [],
+      "score": 0.8
+    },
+    {
+      "voice": "control",
+      "vote": "GO",
+      "reasoning": "No disagreements detected. Glossary validated.",
+      "concerns": [],
+      "score": 0.85
+    }
+  ],
+  "chosen": "approach_a",
+  "pipeline_executed": true,
+  "mode": "sequential"
+}
