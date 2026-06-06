@@ -18,9 +18,10 @@ def main() -> None:
 @main.command("deliberate")
 @click.argument("proposal")
 @click.option("--context", "-c", multiple=True, help="Context files (path)")
-@click.option("--mode", default="sequential", type=click.Choice(["sequential", "dialectic", "trias"]))
+@click.option("--mode", default="sequential", type=click.Choice(["sequential", "dialectic", "trias", "langgraph"]))
 @click.option("--model", default="claude-sonnet-4-6")
 @click.option("--skeptic-can-override", is_flag=True, default=False, help="Allow Skeptic to downgrade verdict (dialectic only)")
+@click.option("--rag", is_flag=True, default=False, help="Inject similar past runs as context (requires consilium-py[rag])")
 @click.option("--output", type=click.Choice(["text", "json"]), default="text")
 def deliberate_cmd(
     proposal: str,
@@ -28,6 +29,7 @@ def deliberate_cmd(
     mode: str,
     model: str,
     skeptic_can_override: bool,
+    rag: bool,
     output: str,
 ) -> None:
     """Deliberate a proposed change."""
@@ -41,13 +43,25 @@ def deliberate_cmd(
         mode=mode,
         model=model,
         skeptic_can_override=skeptic_can_override,
+        rag=rag,
     )
     _print_report(report, output)
 
 
+@main.command("index")
+def index_cmd() -> None:
+    """Index all past runs in ~/.consilium/runs/ into the RAG vector store."""
+    try:
+        from consilium.rag import index_all_runs  # noqa: PLC0415
+    except ImportError as e:
+        raise click.ClickException(str(e))
+    count = index_all_runs()
+    click.echo(f"Indexed {count} run(s) into ~/.consilium/chroma/")
+
+
 @main.command("check")
 @click.option("--diff", default=None, help="Git ref for diff (e.g. HEAD~1, main). Omit for staged changes.")
-@click.option("--mode", default="sequential", type=click.Choice(["sequential", "dialectic", "trias"]))
+@click.option("--mode", default="sequential", type=click.Choice(["sequential", "dialectic", "trias", "langgraph"]))
 @click.option("--model", default="claude-sonnet-4-6")
 @click.option("--skeptic-can-override", is_flag=True, default=False)
 @click.option("--output", type=click.Choice(["text", "json"]), default="text")
