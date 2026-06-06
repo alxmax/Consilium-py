@@ -1,0 +1,490 @@
+{
+  "engine_version": "2026-06-05.2",
+  "repo": "consilium-py",
+  "nodes": [
+    {
+      "id": "CPYBUS-AGG-001",
+      "layer": "bus",
+      "status": "baseline",
+      "area": "CPYBUS",
+      "title": "Sequential aggregation — veto cascade, voice extraction, Report assembly",
+      "intent": "",
+      "contract": [
+        "`aggregate_sequential(cons_text, gen_text, ctrl_text, _inp)` shall parse each text argument as JSON (via `extract_json`) and run the veto cascade in this fixed priority order:",
+        "In the `AGGREGATE` path, `confidence` shall equal `confidence_methodology` (0.0–1.0). A `confidence_methodology ≥ 0.7` maps to verdict `GO`; `≥ 0.4` to `MODIFY`; below to `STOP`.",
+        "Non-`AGGREGATE` results map as: `BLOCK`→`BLOCK`, `REWORK`→`MODIFY`, `ESCALATE`→`ESCALATE`, `ADAPT_SHORT`→`GO`, `ADAPT_EXTENDED`→`MODIFY`.",
+        "The returned `Report` shall contain one `VoiceOutput` per voice (conservator, generator, control) with `vote`, `score`, `reasoning`, and `concerns` fields populated from the parsed JSON."
+      ],
+      "verify": [
+        "Should `REWORK` produce `MODIFY` or its own `REWORK` verdict? Currently `REWORK` maps to `MODIFY`.",
+        "Should confidence floor be applied in non-`AGGREGATE` cases? Currently it is not."
+      ],
+      "notes": [],
+      "current_impl": [
+        "`src/consilium/aggregator.py`"
+      ],
+      "acc": [
+        "Given Conservator output with `irreversibility_flag: true`, when `aggregate_sequential` is called, then verdict is `BLOCK` and confidence is `0.1`.",
+        "Given clean voice outputs with no triggers, when `aggregate_sequential` is called, then result is `AGGREGATE` and verdict is `GO` when `confidence_methodology ≥ 0.7`.",
+        "Given Control output with `glossary_fail: true`, when `aggregate_sequential` is called, then verdict is `BLOCK`."
+      ],
+      "accept": "- Given Conservator output with `irreversibility_flag: true`, when `aggregate_sequential` is called, then verdict is `BLOCK` and confidence is `0.1`.\n- Given clean voice outputs with no triggers, when `aggregate_sequential` is called, then result is `AGGREGATE` and verdict is `GO` when `confidence_methodology ≥ 0.7`.\n- Given Control output with `glossary_fail: true`, when `aggregate_sequential` is called, then verdict is `BLOCK`.",
+      "input": "",
+      "output": "",
+      "desc": "",
+      "deps": [
+        "CPYBUS-VOI-001"
+      ],
+      "used_by": [
+        "CPYMOD-SEQ-001",
+        "CPYMOD-TRI-001"
+      ],
+      "members": [
+        {
+          "role": "implements",
+          "loc": "src/consilium/aggregator.py:2"
+        },
+        {
+          "role": "tested-by",
+          "loc": "tests/test_sequential.py:3"
+        }
+      ],
+      "test_exempt": null,
+      "milestone": null,
+      "risks": [
+        {
+          "signal": "unreviewed",
+          "advice": "Draft/baseline, not yet validated: review the contract, wire its `tested-by` tests, then promote to `confirmed`. Until then it is tracked, not enforced."
+        },
+        {
+          "signal": "unverified-intent",
+          "advice": "Has open `## WHAT — Verify intent` question(s): run `reqmap.py findings`, resolve each in `requirements/_findings.md`, then fold the answer into the Contract or delete the bullet."
+        }
+      ]
+    },
+    {
+      "id": "CPYBUS-API-001",
+      "layer": "bus",
+      "status": "baseline",
+      "area": "CPYBUS",
+      "title": "Public Python API — deliberate()",
+      "intent": "",
+      "contract": [
+        "`deliberate(proposal, context=\"\", mode=\"sequential\", model=\"claude-sonnet-4-6\", skeptic_can_override=False)` shall route to `run_sequential`, `run_dialectic`, or `run_trias` based on `mode`.",
+        "Valid modes are `\"sequential\"`, `\"dialectic\"`, and `\"trias\"`. Any other value shall raise `ValueError` with the list of valid modes.",
+        "`context` is injected verbatim into the proposal message for all modes.",
+        "`model` is passed through to every API call.",
+        "`skeptic_can_override` is forwarded only to `run_dialectic`; it is silently ignored for other modes.",
+        "The return type is always `consilium.models.Report`."
+      ],
+      "verify": [
+        "Should `context` accept a file path or only raw text? Currently raw text only; the CLI handles file loading before calling `deliberate`."
+      ],
+      "notes": [],
+      "current_impl": [
+        "`src/consilium/__init__.py`"
+      ],
+      "acc": [
+        "Given `mode=\"sequential\"`, when `deliberate` is called, then `report.mode == \"sequential\"`.",
+        "Given `mode=\"trias\"`, when `deliberate` is called, then `report.mode == \"trias\"`.",
+        "Given `mode=\"unknown\"`, when `deliberate` is called, then `ValueError` is raised."
+      ],
+      "accept": "- Given `mode=\"sequential\"`, when `deliberate` is called, then `report.mode == \"sequential\"`.\n- Given `mode=\"trias\"`, when `deliberate` is called, then `report.mode == \"trias\"`.\n- Given `mode=\"unknown\"`, when `deliberate` is called, then `ValueError` is raised.",
+      "input": "",
+      "output": "",
+      "desc": "",
+      "deps": [
+        "CPYMOD-SEQ-001",
+        "CPYMOD-DIA-001",
+        "CPYMOD-TRI-001"
+      ],
+      "used_by": [
+        "CPYBUS-CLI-001"
+      ],
+      "members": [
+        {
+          "role": "implements",
+          "loc": "src/consilium/__init__.py:1"
+        }
+      ],
+      "test_exempt": null,
+      "milestone": null,
+      "risks": [
+        {
+          "signal": "unreviewed",
+          "advice": "Draft/baseline, not yet validated: review the contract, wire its `tested-by` tests, then promote to `confirmed`. Until then it is tracked, not enforced."
+        },
+        {
+          "signal": "untested",
+          "advice": "Implemented but no `tested-by` member: write an acceptance test and tag it `# tested-by: <ID>`, or set `test_exempt: <reason>` in the frontmatter to acknowledge it intentionally and silence this signal."
+        },
+        {
+          "signal": "unverified-intent",
+          "advice": "Has open `## WHAT — Verify intent` question(s): run `reqmap.py findings`, resolve each in `requirements/_findings.md`, then fold the answer into the Contract or delete the bullet."
+        }
+      ]
+    },
+    {
+      "id": "CPYBUS-CLI-001",
+      "layer": "bus",
+      "status": "baseline",
+      "area": "CPYBUS",
+      "title": "CLI interface — deliberate and check commands",
+      "intent": "",
+      "contract": [
+        "`consilium deliberate \"<proposal>\"` shall call `deliberate()` with the given proposal and print verdict, confidence, mode, and recommendation in text format, or full JSON with `--output json`.",
+        "`--context <path>` (repeatable) shall read each file and concatenate its content into the `context` argument. Multiple `-c` flags are supported.",
+        "`--mode` shall accept `sequential` (default), `dialectic`, or `trias`.",
+        "`--skeptic-can-override` (flag, Dialectic only) shall set `skeptic_can_override=True`.",
+        "`consilium check --diff <ref>` shall run `git diff <ref>`, use the diff as context, and deliberate with the proposal `\"Review this diff (git diff <ref>)\"`.",
+        "`consilium check` (no `--diff`) shall run `git diff --staged` and deliberate on staged changes.",
+        "If the diff is empty, `check` shall exit with an error message rather than calling the API.",
+        "Non-zero exit codes from `git diff` shall propagate as `ClickException`."
+      ],
+      "verify": [
+        "Should `consilium check` with an empty working tree and no staged changes succeed silently or error? Currently it errors with \"No diff found.\""
+      ],
+      "notes": [],
+      "current_impl": [
+        "`src/consilium/cli.py`"
+      ],
+      "acc": [
+        "Given `--output json`, when `deliberate_cmd` runs, then output is valid JSON parseable as a `Report`.",
+        "Given `--diff HEAD~1` with a real git repo, when `check_cmd` runs, then `deliberate` is called with the diff as context.",
+        "Given an empty diff, when `check_cmd` runs, then a `ClickException` is raised with \"No diff found.\""
+      ],
+      "accept": "- Given `--output json`, when `deliberate_cmd` runs, then output is valid JSON parseable as a `Report`.\n- Given `--diff HEAD~1` with a real git repo, when `check_cmd` runs, then `deliberate` is called with the diff as context.\n- Given an empty diff, when `check_cmd` runs, then a `ClickException` is raised with \"No diff found.\"",
+      "input": "",
+      "output": "",
+      "desc": "",
+      "deps": [
+        "CPYBUS-API-001"
+      ],
+      "used_by": [],
+      "members": [
+        {
+          "role": "implements",
+          "loc": "src/consilium/cli.py:2"
+        }
+      ],
+      "test_exempt": null,
+      "milestone": null,
+      "risks": [
+        {
+          "signal": "unreviewed",
+          "advice": "Draft/baseline, not yet validated: review the contract, wire its `tested-by` tests, then promote to `confirmed`. Until then it is tracked, not enforced."
+        },
+        {
+          "signal": "untested",
+          "advice": "Implemented but no `tested-by` member: write an acceptance test and tag it `# tested-by: <ID>`, or set `test_exempt: <reason>` in the frontmatter to acknowledge it intentionally and silence this signal."
+        },
+        {
+          "signal": "unverified-intent",
+          "advice": "Has open `## WHAT — Verify intent` question(s): run `reqmap.py findings`, resolve each in `requirements/_findings.md`, then fold the answer into the Contract or delete the bullet."
+        }
+      ]
+    },
+    {
+      "id": "CPYBUS-VOI-001",
+      "layer": "bus",
+      "status": "baseline",
+      "area": "CPYBUS",
+      "title": "Voice dispatch — prompt loading, API call, JSON extraction",
+      "intent": "",
+      "contract": [
+        "`load_prompt(name)` shall read `prompts/voices/{name}.md` relative to the package root and return its full text.",
+        "`call_voice(_voice_name, system_prompt, user_msg, model)` shall call `client.messages.create` with `max_tokens=4096` and return the text of the first `TextBlock` in the response. If no `TextBlock` is present, it returns an empty string.",
+        "`extract_json(text)` shall return the first valid JSON object found in `text`. It checks, in order: (1) a fenced code block ` ```json … ``` ` or ` ``` … ``` `; (2) the first `{…}` span in the raw text matched by brace depth. On failure it returns `{}`.",
+        "The Anthropic client shall be created lazily (on first call) so importing the package does not require `ANTHROPIC_API_KEY` to be set at import time."
+      ],
+      "verify": [
+        "Should `call_voice` retry on transient API errors (rate-limit, timeout), or is that the caller's responsibility? Currently no retry logic exists."
+      ],
+      "notes": [],
+      "current_impl": [
+        "`src/consilium/voices.py`"
+      ],
+      "acc": [
+        "Given a prompt file exists at `prompts/voices/conservator.md`, when `load_prompt(\"conservator\")` is called, then the returned string equals the file's content.",
+        "Given a response containing ` ```json {\"key\": 1} ``` `, when `extract_json` is called, then `{\"key\": 1}` is returned.",
+        "Given a response containing `{\"key\": 1}` with no fence, when `extract_json` is called, then `{\"key\": 1}` is returned.",
+        "Given a response with no JSON, when `extract_json` is called, then `{}` is returned."
+      ],
+      "accept": "- Given a prompt file exists at `prompts/voices/conservator.md`, when `load_prompt(\"conservator\")` is called, then the returned string equals the file's content.\n- Given a response containing ` ```json {\"key\": 1} ``` `, when `extract_json` is called, then `{\"key\": 1}` is returned.\n- Given a response containing `{\"key\": 1}` with no fence, when `extract_json` is called, then `{\"key\": 1}` is returned.\n- Given a response with no JSON, when `extract_json` is called, then `{}` is returned.",
+      "input": "",
+      "output": "",
+      "desc": "",
+      "deps": [],
+      "used_by": [
+        "CPYBUS-AGG-001",
+        "CPYMOD-DIA-001",
+        "CPYMOD-SEQ-001",
+        "CPYMOD-TRI-001"
+      ],
+      "members": [
+        {
+          "role": "implements",
+          "loc": "src/consilium/voices.py:2"
+        }
+      ],
+      "test_exempt": null,
+      "milestone": null,
+      "risks": [
+        {
+          "signal": "unreviewed",
+          "advice": "Draft/baseline, not yet validated: review the contract, wire its `tested-by` tests, then promote to `confirmed`. Until then it is tracked, not enforced."
+        },
+        {
+          "signal": "untested",
+          "advice": "Implemented but no `tested-by` member: write an acceptance test and tag it `# tested-by: <ID>`, or set `test_exempt: <reason>` in the frontmatter to acknowledge it intentionally and silence this signal."
+        },
+        {
+          "signal": "unverified-intent",
+          "advice": "Has open `## WHAT — Verify intent` question(s): run `reqmap.py findings`, resolve each in `requirements/_findings.md`, then fold the answer into the Contract or delete the bullet."
+        }
+      ]
+    },
+    {
+      "id": "CPYMOD-DIA-001",
+      "layer": "feature",
+      "status": "baseline",
+      "area": "CPYMOD",
+      "title": "Dialectic deliberation mode — Sequential + Skeptic challenger",
+      "intent": "",
+      "contract": [
+        "`run_dialectic(inp, skeptic_can_override=False)` shall first call `run_sequential(inp)`.",
+        "After Sequential, it shall call the Skeptic voice once. The Skeptic's input shall contain only: the chosen candidate id + summary, the proposal as `success_criterion`, and the optional context.",
+        "The Skeptic output shall be parsed into a `SkepticObjection` and added as `report.skeptic`.",
+        "A fourth `VoiceOutput` with `voice=\"skeptic\"` shall be appended to `report.voices`.",
+        "**Advisory mode** (`skeptic_can_override=False`, default): the Sequential verdict and confidence are unchanged regardless of Skeptic's objection.",
+        "**Override mode** (`skeptic_can_override=True`): if `can_object=True`, the verdict shall be downgraded:",
+        "`addressable=\"in_place\"` + current verdict `GO` → `MODIFY`",
+        "`addressable=\"requires_redesign\"` → `MODIFY`, confidence capped at 0.5",
+        "`addressable=\"unaddressable\"` → `BLOCK`, confidence set to 0.1",
+        "The `mode` field of the returned `Report` shall be `\"dialectic\"`."
+      ],
+      "verify": [
+        "Should the Skeptic run even when Sequential returns `BLOCK` or `ESCALATE`? Currently it always runs. The Consilium skill skips it only when `chosen` is None — but `BLOCK` can also have `chosen=None`."
+      ],
+      "notes": [],
+      "current_impl": [
+        "`src/consilium/modes/dialectic.py`",
+        "`tests/test_dialectic.py`"
+      ],
+      "acc": [
+        "Given clean Sequential (GO), no Skeptic objection, when `run_dialectic` is called, then `report.verdict == \"GO\"` and `report.mode == \"dialectic\"` and `len(report.voices) == 4`.",
+        "Given advisory mode with `can_object=True, addressable=\"in_place\"`, when called, then verdict remains `GO`.",
+        "Given override mode with `can_object=True, addressable=\"in_place\"`, when called, then verdict is `MODIFY`.",
+        "Given override mode with `addressable=\"unaddressable\"`, when called, then verdict is `BLOCK` and confidence is `0.1`."
+      ],
+      "accept": "- Given clean Sequential (GO), no Skeptic objection, when `run_dialectic` is called, then `report.verdict == \"GO\"` and `report.mode == \"dialectic\"` and `len(report.voices) == 4`.\n- Given advisory mode with `can_object=True, addressable=\"in_place\"`, when called, then verdict remains `GO`.\n- Given override mode with `can_object=True, addressable=\"in_place\"`, when called, then verdict is `MODIFY`.\n- Given override mode with `addressable=\"unaddressable\"`, when called, then verdict is `BLOCK` and confidence is `0.1`.",
+      "input": "",
+      "output": "",
+      "desc": "",
+      "deps": [
+        "CPYMOD-SEQ-001",
+        "CPYBUS-VOI-001"
+      ],
+      "used_by": [
+        "CPYBUS-API-001"
+      ],
+      "members": [
+        {
+          "role": "implements",
+          "loc": "src/consilium/modes/dialectic.py:1"
+        },
+        {
+          "role": "tested-by",
+          "loc": "tests/test_dialectic.py:2"
+        }
+      ],
+      "test_exempt": null,
+      "milestone": null,
+      "risks": [
+        {
+          "signal": "unreviewed",
+          "advice": "Draft/baseline, not yet validated: review the contract, wire its `tested-by` tests, then promote to `confirmed`. Until then it is tracked, not enforced."
+        },
+        {
+          "signal": "unverified-intent",
+          "advice": "Has open `## WHAT — Verify intent` question(s): run `reqmap.py findings`, resolve each in `requirements/_findings.md`, then fold the answer into the Contract or delete the bullet."
+        }
+      ]
+    },
+    {
+      "id": "CPYMOD-SEQ-001",
+      "layer": "feature",
+      "status": "baseline",
+      "area": "CPYMOD",
+      "title": "Sequential deliberation mode",
+      "intent": "",
+      "contract": [
+        "`run_sequential(inp)` shall call the three voices in this order: Conservator first (no prior context), Generator second (sees Conservator output), Control third (sees both).",
+        "Each voice call shall use the system prompt from `prompts/voices/{name}.md` with the proposal and optional context in the user message.",
+        "The function shall return the `Report` produced by `aggregate_sequential`.",
+        "The `mode` field of the returned `Report` shall be `\"sequential\"`."
+      ],
+      "verify": [
+        "Should the proposal language be English-only, or multilingual? The prompts are in English; a Romanian proposal will work but responses may mix languages."
+      ],
+      "notes": [],
+      "current_impl": [
+        "`src/consilium/modes/sequential.py`",
+        "`tests/test_sequential.py`"
+      ],
+      "acc": [
+        "Given a proposal with no risk triggers, when `run_sequential` is called (with mocked `call_voice`), then `report.mode == \"sequential\"` and `report.pipeline_executed is True`.",
+        "Given Conservator output with `irreversibility_flag: true`, when `run_sequential` is called, then `report.verdict == \"BLOCK\"`.",
+        "Given clean voice outputs, when `run_sequential` is called, then `len(report.voices) == 3` with voices named conservator, generator, control."
+      ],
+      "accept": "- Given a proposal with no risk triggers, when `run_sequential` is called (with mocked `call_voice`), then `report.mode == \"sequential\"` and `report.pipeline_executed is True`.\n- Given Conservator output with `irreversibility_flag: true`, when `run_sequential` is called, then `report.verdict == \"BLOCK\"`.\n- Given clean voice outputs, when `run_sequential` is called, then `len(report.voices) == 3` with voices named conservator, generator, control.",
+      "input": "",
+      "output": "",
+      "desc": "",
+      "deps": [
+        "CPYBUS-VOI-001",
+        "CPYBUS-AGG-001"
+      ],
+      "used_by": [
+        "CPYBUS-API-001",
+        "CPYMOD-DIA-001"
+      ],
+      "members": [
+        {
+          "role": "implements",
+          "loc": "src/consilium/modes/sequential.py:1"
+        },
+        {
+          "role": "tested-by",
+          "loc": "tests/test_sequential.py:2"
+        }
+      ],
+      "test_exempt": null,
+      "milestone": null,
+      "risks": [
+        {
+          "signal": "unreviewed",
+          "advice": "Draft/baseline, not yet validated: review the contract, wire its `tested-by` tests, then promote to `confirmed`. Until then it is tracked, not enforced."
+        },
+        {
+          "signal": "unverified-intent",
+          "advice": "Has open `## WHAT — Verify intent` question(s): run `reqmap.py findings`, resolve each in `requirements/_findings.md`, then fold the answer into the Contract or delete the bullet."
+        }
+      ]
+    },
+    {
+      "id": "CPYMOD-TRI-001",
+      "layer": "feature",
+      "status": "baseline",
+      "area": "CPYMOD",
+      "title": "Trias deliberation mode — 3 parallel personalities with democratic vote",
+      "intent": "",
+      "contract": [
+        "`run_trias(inp)` shall dispatch `_run_personality` for each of the three personalities concurrently via `asyncio.to_thread` + `asyncio.gather`.",
+        "Each personality shall prepend its lens (`prompts/voices/{name}_lens.md`) to each voice system prompt, separated from the core prompt by `\\n\\n---\\n\\n`.",
+        "After all three complete, the function shall perform a majority vote over the three `chosen` values:",
+        "If ≥ 2 personalities chose the same candidate → that candidate wins.",
+        "Otherwise → no winner.",
+        "Vote confidence shall follow: `3-0` → 0.95, `2-1` → 0.75, `2-0` → 0.70. No majority → verdict `ESCALATE`, confidence 0.30.",
+        "When a winner exists, the verdict and recommendation are taken from the winning personality's `Report`.",
+        "The returned `Report` shall contain exactly three `VoiceOutput` entries, one per personality (pioneer, architect, steward), not the 9 individual voice calls.",
+        "The `mode` field of the returned `Report` shall be `\"trias\"`."
+      ],
+      "verify": [
+        "When all three personalities choose the same candidate but one returns `MODIFY` and two return `GO`, which verdict wins? Currently the winner's personality verdict is used, so it would be `GO` (majority by `chosen`, not by verdict).",
+        "Should `asyncio.run` be used directly, or should the public API be async? Currently synchronous (`asyncio.run` inside `run_trias`)."
+      ],
+      "notes": [],
+      "current_impl": [
+        "`src/consilium/modes/trias.py`",
+        "`tests/test_trias.py`"
+      ],
+      "acc": [
+        "Given three personalities all returning `chosen=\"a\"`, when `run_trias` is called, then `report.verdict == \"GO\"`, `report.confidence == 0.95`, `report.chosen == \"a\"`, `report.mode == \"trias\"`.",
+        "Given two personalities returning `chosen=\"a\"` and one returning `chosen=\"b\"`, then `report.confidence == 0.75` and `report.chosen == \"a\"`.",
+        "Given three personalities each returning a different `chosen`, then `report.verdict == \"ESCALATE\"` and `report.chosen is None`.",
+        "The `report.voices` list shall contain exactly 3 entries with names `{\"pioneer\", \"architect\", \"steward\"}`."
+      ],
+      "accept": "- Given three personalities all returning `chosen=\"a\"`, when `run_trias` is called, then `report.verdict == \"GO\"`, `report.confidence == 0.95`, `report.chosen == \"a\"`, `report.mode == \"trias\"`.\n- Given two personalities returning `chosen=\"a\"` and one returning `chosen=\"b\"`, then `report.confidence == 0.75` and `report.chosen == \"a\"`.\n- Given three personalities each returning a different `chosen`, then `report.verdict == \"ESCALATE\"` and `report.chosen is None`.\n- The `report.voices` list shall contain exactly 3 entries with names `{\"pioneer\", \"architect\", \"steward\"}`.",
+      "input": "",
+      "output": "",
+      "desc": "",
+      "deps": [
+        "CPYBUS-VOI-001",
+        "CPYBUS-AGG-001"
+      ],
+      "used_by": [
+        "CPYBUS-API-001"
+      ],
+      "members": [
+        {
+          "role": "implements",
+          "loc": "src/consilium/modes/trias.py:2"
+        },
+        {
+          "role": "tested-by",
+          "loc": "tests/test_trias.py:2"
+        }
+      ],
+      "test_exempt": null,
+      "milestone": null,
+      "risks": [
+        {
+          "signal": "unreviewed",
+          "advice": "Draft/baseline, not yet validated: review the contract, wire its `tested-by` tests, then promote to `confirmed`. Until then it is tracked, not enforced."
+        },
+        {
+          "signal": "unverified-intent",
+          "advice": "Has open `## WHAT — Verify intent` question(s): run `reqmap.py findings`, resolve each in `requirements/_findings.md`, then fold the answer into the Contract or delete the bullet."
+        }
+      ]
+    }
+  ],
+  "edges": [
+    [
+      "CPYBUS-AGG-001",
+      "CPYBUS-VOI-001"
+    ],
+    [
+      "CPYBUS-API-001",
+      "CPYMOD-SEQ-001"
+    ],
+    [
+      "CPYBUS-API-001",
+      "CPYMOD-DIA-001"
+    ],
+    [
+      "CPYBUS-API-001",
+      "CPYMOD-TRI-001"
+    ],
+    [
+      "CPYBUS-CLI-001",
+      "CPYBUS-API-001"
+    ],
+    [
+      "CPYMOD-DIA-001",
+      "CPYMOD-SEQ-001"
+    ],
+    [
+      "CPYMOD-DIA-001",
+      "CPYBUS-VOI-001"
+    ],
+    [
+      "CPYMOD-SEQ-001",
+      "CPYBUS-VOI-001"
+    ],
+    [
+      "CPYMOD-SEQ-001",
+      "CPYBUS-AGG-001"
+    ],
+    [
+      "CPYMOD-TRI-001",
+      "CPYBUS-VOI-001"
+    ],
+    [
+      "CPYMOD-TRI-001",
+      "CPYBUS-AGG-001"
+    ]
+  ],
+  "todos": []
+}

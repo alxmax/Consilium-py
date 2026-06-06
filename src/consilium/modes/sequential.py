@@ -1,3 +1,4 @@
+# implements: CPYMOD-SEQ-001
 from consilium.aggregator import aggregate_sequential
 from consilium.models import DeliberationInput, Report
 from consilium.voices import call_voice, load_prompt

@@ -1,4 +1,6 @@
-"""Unit tests for dialectic mode — voices mocked, no API calls."""
+"""Unit tests for dialectic mode — voices mocked, no API calls.
+# tested-by: CPYMOD-DIA-001
+"""
 import json
 import unittest
 from unittest.mock import patch

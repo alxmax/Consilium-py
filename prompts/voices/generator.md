@@ -131,5 +131,4 @@ When adversarial and unconventional are both omitted, the output looks like:
 - Exceeding `tokens_budget.generator` significantly — Conservator set that limit deliberately.
 - Proposing options whose `downside_estimate` exceeds the declared `fallback_scenario` without flagging it.
 
-<!-- implements: CONSILIUM-VOICE-GENERATOR-001 -->
 

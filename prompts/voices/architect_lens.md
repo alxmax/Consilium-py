@@ -22,5 +22,4 @@ Conservator assesses risk) — but through Architect's perspective.
 
 Your voice output will be re-weighted by the personality's aggregator weights — focus on shifting perception through your role's lens, not on inflating or deflating numerical scores directly.
 
-<!-- implements: CONSILIUM-LENS-ARCHITECT-001 -->
 

@@ -1,4 +1,6 @@
-"""Unit tests for Trias mode — _run_personality mocked, no API calls."""
+"""Unit tests for Trias mode — _run_personality mocked, no API calls.
+# tested-by: CPYMOD-TRI-001
+"""
 import unittest
 from unittest.mock import patch
 

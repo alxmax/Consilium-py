@@ -110,5 +110,4 @@ For each `valid: true` candidate (except `do_nothing`), produce `tests_to_write`
 - Hidden assumptions that don't change the answer if false — they're noise.
 - More than 5 glossary terms — pick the most load-bearing ones.
 
-<!-- implements: CONSILIUM-VOICE-CONTROL-001 -->
 

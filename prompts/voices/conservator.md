@@ -195,5 +195,4 @@ If the file at the cited path was not read in this dispatch, omit the claim or m
 - Status quo bias: rating irreversible because *not* changing feels safer, not because the change is actually irreversible.
 - Forgetting tokens_budget — Generator cannot self-calibrate without it.
 
-<!-- implements: CONSILIUM-VOICE-CONSERVATOR-001 -->
 

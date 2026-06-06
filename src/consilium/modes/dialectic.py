@@ -1,3 +1,4 @@
+# implements: CPYMOD-DIA-001
 from consilium.models import DeliberationInput, Report, SkepticObjection, VoiceOutput
 from consilium.modes.sequential import run_sequential
 from consilium.voices import call_voice, extract_json, load_prompt

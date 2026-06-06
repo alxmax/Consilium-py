@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>consilium-py — Architecture</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --border: #2d3148;
+    --accent: #6c63ff;
+    --accent2: #00c9a7;
+    --accent3: #ff6b6b;
+    --accent4: #ffd93d;
+    --text: #e2e4f0;
+    --muted: #7b7f9e;
+    --go: #22c55e;
+    --modify: #f59e0b;
+    --stop: #ef4444;
+    --block: #dc2626;
+    --escalate: #8b5cf6;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; line-height: 1.5; }
+
+  header { padding: 2rem 3rem 1.5rem; border-bottom: 1px solid var(--border); }
+  header h1 { font-size: 1.6rem; font-weight: 700; }
+  header h1 span { color: var(--accent); }
+  header p { color: var(--muted); margin-top: .4rem; font-size: .9rem; }
+
+  nav { display: flex; gap: .5rem; padding: 1rem 3rem; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  nav button {
+    background: none; border: 1px solid var(--border); color: var(--muted);
+    padding: .4rem 1rem; border-radius: 999px; cursor: pointer; font-size: .85rem; transition: all .15s;
+  }
+  nav button.active, nav button:hover { border-color: var(--accent); color: var(--accent); background: #6c63ff18; }
+
+  .tab { display: none; padding: 2.5rem 3rem; }
+  .tab.active { display: block; }
+
+  /* ── OVERVIEW ── */
+  .overview-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 900px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem 1.5rem;
+  }
+  .card h3 { font-size: .95rem; font-weight: 600; margin-bottom: .5rem; }
+  .card p { font-size: .85rem; color: var(--muted); }
+  .card .tag {
+    display: inline-block; padding: .2rem .55rem; border-radius: 4px; font-size: .75rem; font-weight: 600;
+    margin-right: .3rem; margin-top: .5rem;
+  }
+  .bus  { border-left: 3px solid var(--accent); }
+  .feat { border-left: 3px solid var(--accent2); }
+
+  /* ── PIPELINE ── */
+  .pipeline { max-width: 1000px; }
+  .pipeline h2 { font-size: 1.1rem; font-weight: 600; margin-bottom: 1.5rem; }
+  .pipeline h3 { font-size: .9rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: .8rem; }
+
+  .flow { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; margin-bottom: 2.5rem; }
+  .node {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    padding: .6rem 1rem; font-size: .85rem; white-space: nowrap;
+  }
+  .node.voice  { border-color: var(--accent); color: var(--accent); }
+  .node.lens   { border-color: var(--accent4); color: var(--accent4); }
+  .node.agg    { border-color: var(--accent2); color: var(--accent2); }
+  .node.report { border-color: var(--go); color: var(--go); }
+  .node.entry  { border-color: var(--muted); }
+  .node.parallel {
+    border: 1px dashed var(--accent4); background: #ffd93d08; padding: 1rem;
+    display: flex; gap: 1rem; align-items: center; border-radius: 10px;
+  }
+  .arrow { color: var(--muted); font-size: 1.2rem; }
+  .arrow.down { display: block; text-align: center; margin: .3rem 0; }
+
+  .note { font-size: .8rem; color: var(--muted); margin-top: -.5rem; margin-bottom: 2rem; padding-left: .5rem; border-left: 2px solid var(--border); }
+
+  /* ── VERDICTS ── */
+  .verdicts { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; max-width: 800px; margin-bottom: 2rem; }
+  .verdict-card { background: var(--surface); border-radius: 8px; padding: 1rem; text-align: center; }
+  .verdict-card .badge {
+    display: inline-block; padding: .3rem .7rem; border-radius: 6px; font-size: .8rem; font-weight: 700; margin-bottom: .5rem;
+  }
+  .verdict-card p { font-size: .78rem; color: var(--muted); }
+  .v-go    .badge { background: #16a34a30; color: var(--go); }
+  .v-mod   .badge { background: #d9770630; color: var(--modify); }
+  .v-stop  .badge { background: #dc262630; color: var(--stop); }
+  .v-block .badge { background: #991b1b30; color: var(--block); }
+  .v-esc   .badge { background: #6d28d930; color: var(--escalate); }
+
+  /* ── MODES ── */
+  .modes-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; max-width: 960px; }
+  .mode-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1.5rem; }
+  .mode-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: .4rem; }
+  .mode-card .sub { font-size: .8rem; color: var(--muted); margin-bottom: 1rem; }
+  .mode-card ul { list-style: none; padding: 0; }
+  .mode-card ul li { font-size: .85rem; padding: .25rem 0; border-bottom: 1px solid var(--border); color: var(--muted); }
+  .mode-card ul li:last-child { border-bottom: none; }
+  .mode-card ul li strong { color: var(--text); }
+  .seq-card  { border-top: 3px solid var(--accent); }
+  .dia-card  { border-top: 3px solid var(--accent2); }
+  .tri-card  { border-top: 3px solid var(--accent4); }
+
+  .cost { display: inline-block; padding: .2rem .55rem; border-radius: 4px; font-size: .75rem; font-weight: 600; background: #ffffff10; margin-top: .8rem; }
+
+  /* ── LAYERS ── */
+  .layer-diagram { display: flex; flex-direction: column; gap: .75rem; max-width: 700px; }
+  .layer-row { display: flex; gap: .75rem; }
+  .layer-box {
+    flex: 1; padding: .9rem 1.1rem; border-radius: 8px; font-size: .85rem;
+    background: var(--surface); border: 1px solid var(--border);
+  }
+  .layer-box .name { font-weight: 700; margin-bottom: .25rem; }
+  .layer-box .id   { font-size: .72rem; color: var(--muted); font-family: monospace; }
+  .bus-layer  { border-color: var(--accent); }
+  .feat-layer { border-color: var(--accent2); }
+  .arrow-layer { text-align: center; color: var(--muted); font-size: 1.1rem; padding-top: .3rem; }
+
+  footer { padding: 1.5rem 3rem; border-top: 1px solid var(--border); font-size: .8rem; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span>consilium-py</span> — Architecture</h1>
+  <p>Dialectical code-change deliberation as a standalone Python package · v0.1.0</p>
+</header>
+
+<nav>
+  <button class="active" onclick="showTab('overview')">Overview</button>
+  <button onclick="showTab('pipeline')">Pipeline</button>
+  <button onclick="showTab('modes')">Modes</button>
+  <button onclick="showTab('verdicts')">Verdicts</button>
+  <button onclick="showTab('layers')">Capability map</button>
+</nav>
+
+<!-- ═══ OVERVIEW ═══ -->
+<div id="tab-overview" class="tab active">
+  <h2 style="margin-bottom:1.25rem;font-size:1.1rem;font-weight:600">Package layout</h2>
+  <div class="overview-grid">
+    <div class="card bus">
+      <h3>Voice dispatch <code style="font-size:.75rem;color:var(--muted)">CPYBUS-VOI-001</code></h3>
+      <p>Loads voice prompts from disk, calls the Anthropic Messages API, extracts JSON from the response. Shared by all modes.</p>
+      <span class="tag" style="background:#6c63ff18;color:var(--accent)">bus</span>
+      <code style="font-size:.75rem;color:var(--muted)">voices.py</code>
+    </div>
+    <div class="card bus">
+      <h3>Aggregation <code style="font-size:.75rem;color:var(--muted)">CPYBUS-AGG-001</code></h3>
+      <p>Veto cascade on the three voice JSON outputs → Report. Priority: BLOCK → ESCALATE → REWORK → ADAPT → AGGREGATE.</p>
+      <span class="tag" style="background:#6c63ff18;color:var(--accent)">bus</span>
+      <code style="font-size:.75rem;color:var(--muted)">aggregator.py</code>
+    </div>
+    <div class="card bus">
+      <h3>Public API <code style="font-size:.75rem;color:var(--muted)">CPYBUS-API-001</code></h3>
+      <p><code>deliberate(proposal, context, mode, model)</code> — single entry point, routes to the requested mode.</p>
+      <span class="tag" style="background:#6c63ff18;color:var(--accent)">bus</span>
+      <code style="font-size:.75rem;color:var(--muted)">__init__.py</code>
+    </div>
+    <div class="card bus">
+      <h3>CLI <code style="font-size:.75rem;color:var(--muted)">CPYBUS-CLI-001</code></h3>
+      <p><code>consilium deliberate</code> and <code>consilium check --diff</code>. Wraps the public API with Click.</p>
+      <span class="tag" style="background:#6c63ff18;color:var(--accent)">bus</span>
+      <code style="font-size:.75rem;color:var(--muted)">cli.py</code>
+    </div>
+    <div class="card feat">
+      <h3>Sequential mode <code style="font-size:.75rem;color:var(--muted)">CPYMOD-SEQ-001</code></h3>
+      <p>Conservator → Generator → Control. Each voice sees all prior outputs. Cost: 3 API calls.</p>
+      <span class="tag" style="background:#00c9a718;color:var(--accent2)">feature</span>
+      <code style="font-size:.75rem;color:var(--muted)">modes/sequential.py</code>
+    </div>
+    <div class="card feat">
+      <h3>Dialectic mode <code style="font-size:.75rem;color:var(--muted)">CPYMOD-DIA-001</code></h3>
+      <p>Sequential + Skeptic challenger on the chosen candidate. Advisory by default; <code>--skeptic-can-override</code> for opt-in veto.</p>
+      <span class="tag" style="background:#00c9a718;color:var(--accent2)">feature</span>
+      <code style="font-size:.75rem;color:var(--muted)">modes/dialectic.py</code>
+    </div>
+    <div class="card feat" style="grid-column: 1/-1">
+      <h3>Trias mode <code style="font-size:.75rem;color:var(--muted)">CPYMOD-TRI-001</code></h3>
+      <p>3 personality-biased Sequential runs dispatched in parallel via <code>asyncio.to_thread</code>. Pioneer (risk-tolerant) · Architect (balanced) · Steward (conservative). Democratic majority vote over the 3 chosen candidates.</p>
+      <span class="tag" style="background:#00c9a718;color:var(--accent2)">feature</span>
+      <code style="font-size:.75rem;color:var(--muted)">modes/trias.py</code>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ PIPELINE ═══ -->
+<div id="tab-pipeline" class="tab">
+  <div class="pipeline">
+    <h2>Deliberation pipelines</h2>
+
+    <h3>Sequential (default)</h3>
+    <div class="flow">
+      <div class="node entry">proposal + context</div>
+      <div class="arrow">→</div>
+      <div class="node voice">Conservator<br><small style="color:var(--muted)">risk · reversibility</small></div>
+      <div class="arrow">→</div>
+      <div class="node voice">Generator<br><small style="color:var(--muted)">approaches · preferred</small></div>
+      <div class="arrow">→</div>
+      <div class="node voice">Control<br><small style="color:var(--muted)">glossary · disagreements</small></div>
+      <div class="arrow">→</div>
+      <div class="node agg">aggregate_sequential<br><small style="color:var(--muted)">veto cascade</small></div>
+      <div class="arrow">→</div>
+      <div class="node report">Report</div>
+    </div>
+    <p class="note">3 API calls · each voice sees all prior outputs · Conservator output shapes Generator scope</p>
+
+    <h3>Dialectic</h3>
+    <div class="flow">
+      <div class="node entry">proposal</div>
+      <div class="arrow">→</div>
+      <div class="node agg" style="border-color:var(--accent)">Sequential<br><small style="color:var(--muted)">(as above)</small></div>
+      <div class="arrow">→</div>
+      <div class="node voice" style="border-color:var(--accent3);color:var(--accent3)">Skeptic<br><small style="color:var(--muted)">sees chosen only</small></div>
+      <div class="arrow">→</div>
+      <div class="node agg">override?<br><small style="color:var(--muted)">advisory / override</small></div>
+      <div class="arrow">→</div>
+      <div class="node report">Report + skeptic</div>
+    </div>
+    <p class="note">4 API calls · Skeptic is blind to other candidates · advisory by default · <code>--skeptic-can-override</code> enables downgrade</p>
+
+    <h3>Trias (parallel)</h3>
+    <div class="flow">
+      <div class="node entry">proposal</div>
+      <div class="arrow">→</div>
+      <div class="node parallel">
+        <div>
+          <div class="node lens">Pioneer lens</div>
+          <span class="arrow down">↓</span>
+          <div class="node agg" style="border-color:var(--accent4);color:var(--accent4)">Sequential</div>
+          <span class="arrow down">↓</span>
+          <div style="font-size:.75rem;color:var(--muted);text-align:center">chosen_a</div>
+        </div>
+        <div>
+          <div class="node lens">Architect lens</div>
+          <span class="arrow down">↓</span>
+          <div class="node agg" style="border-color:var(--accent4);color:var(--accent4)">Sequential</div>
+          <span class="arrow down">↓</span>
+          <div style="font-size:.75rem;color:var(--muted);text-align:center">chosen_b</div>
+        </div>
+        <div>
+          <div class="node lens">Steward lens</div>
+          <span class="arrow down">↓</span>
+          <div class="node agg" style="border-color:var(--accent4);color:var(--accent4)">Sequential</div>
+          <span class="arrow down">↓</span>
+          <div style="font-size:.75rem;color:var(--muted);text-align:center">chosen_c</div>
+        </div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="node agg">majority vote<br><small style="color:var(--muted)">3-0 · 2-1 · 2-0</small></div>
+      <div class="arrow">→</div>
+      <div class="node report">Report</div>
+    </div>
+    <p class="note">9 API calls · parallel via asyncio.to_thread · confidence from vote pattern (3-0→0.95, 2-1→0.75, 2-0→0.70) · no majority → ESCALATE</p>
+
+    <h3>JSON extraction (shared)</h3>
+    <div class="flow">
+      <div class="node entry">API response text</div>
+      <div class="arrow">→</div>
+      <div class="node" style="border-color:var(--muted)">try: ```json fence```</div>
+      <div class="arrow">→</div>
+      <div class="node" style="border-color:var(--muted)">try: first {…} brace-match</div>
+      <div class="arrow">→</div>
+      <div class="node agg">dict or {}</div>
+    </div>
+    <p class="note">Handles markdown-fenced and raw JSON · falls back to {} on parse failure · never raises</p>
+  </div>
+</div>
+
+<!-- ═══ MODES ═══ -->
+<div id="tab-modes" class="tab">
+  <div class="modes-grid">
+    <div class="mode-card seq-card">
+      <h3>Sequential</h3>
+      <p class="sub">Default mode. Single shared context chain.</p>
+      <ul>
+        <li><strong>Voices</strong>: Conservator → Generator → Control</li>
+        <li><strong>API calls</strong>: 3</li>
+        <li><strong>Cost</strong>: ~$0.05–0.15 (Sonnet)</li>
+        <li><strong>Confidence</strong>: from confidence_methodology (0–1)</li>
+        <li><strong>Use when</strong>: routine changes, most decisions</li>
+      </ul>
+      <span class="cost">consilium deliberate "..."</span>
+    </div>
+    <div class="mode-card dia-card">
+      <h3>Dialectic</h3>
+      <p class="sub">Sequential + Skeptic adversarial challenge.</p>
+      <ul>
+        <li><strong>Voices</strong>: Cons → Gen → Ctrl + Skeptic</li>
+        <li><strong>API calls</strong>: 4</li>
+        <li><strong>Cost</strong>: ~1.33× Sequential</li>
+        <li><strong>Confidence</strong>: inherited from Sequential</li>
+        <li><strong>Skeptic</strong>: sees chosen only · advisory default</li>
+        <li><strong>Use when</strong>: medium-risk, or confidence &lt; 0.7</li>
+      </ul>
+      <span class="cost">--mode dialectic</span>
+    </div>
+    <div class="mode-card tri-card">
+      <h3>Trias</h3>
+      <p class="sub">3 parallel personality-biased deliberations.</p>
+      <ul>
+        <li><strong>Personalities</strong>: Pioneer · Architect · Steward</li>
+        <li><strong>API calls</strong>: 9 (parallel)</li>
+        <li><strong>Cost</strong>: ~3× Sequential</li>
+        <li><strong>Confidence</strong>: 0.95 / 0.75 / 0.70 by vote pattern</li>
+        <li><strong>No majority</strong>: ESCALATE</li>
+        <li><strong>Use when</strong>: high-stakes, architecture decisions</li>
+      </ul>
+      <span class="cost">--mode trias</span>
+    </div>
+  </div>
+
+  <div style="margin-top:2rem;max-width:600px">
+    <h3 style="font-size:.85rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.75rem">Mode selection guide</h3>
+    <table style="width:100%;border-collapse:collapse;font-size:.83rem">
+      <tr style="border-bottom:1px solid var(--border);color:var(--muted)">
+        <th style="text-align:left;padding:.5rem">Scenario</th><th style="text-align:left;padding:.5rem">Mode</th>
+      </tr>
+      <tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:.5rem">Routine change, low risk</td><td style="padding:.5rem;color:var(--accent)">sequential</td>
+      </tr>
+      <tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:.5rem">Medium risk, want a challenge</td><td style="padding:.5rem;color:var(--accent2)">dialectic</td>
+      </tr>
+      <tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:.5rem">Architecture decision, irreversible</td><td style="padding:.5rem;color:var(--accent4)">trias</td>
+      </tr>
+      <tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:.5rem">Sequential confidence &lt; 0.7</td><td style="padding:.5rem;color:var(--accent2)">dialectic</td>
+      </tr>
+      <tr>
+        <td style="padding:.5rem">Review a git diff before merging</td><td style="padding:.5rem;color:var(--accent)">consilium check --diff</td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+<!-- ═══ VERDICTS ═══ -->
+<div id="tab-verdicts" class="tab">
+  <h2 style="margin-bottom:1.25rem;font-size:1.1rem;font-weight:600">Verdict reference</h2>
+  <div class="verdicts">
+    <div class="verdict-card v-go">
+      <div class="badge">GO</div>
+      <p>All voices agree. Confidence ≥ 0.7. Proceed.</p>
+    </div>
+    <div class="verdict-card v-mod">
+      <div class="badge">MODIFY</div>
+      <p>Proceed with changes. Confidence 0.4–0.7, or substantial disagreement addressed.</p>
+    </div>
+    <div class="verdict-card v-stop">
+      <div class="badge">STOP</div>
+      <p>Confidence &lt; 0.4. Deliberation too uncertain to proceed safely.</p>
+    </div>
+    <div class="verdict-card v-block">
+      <div class="badge">BLOCK</div>
+      <p>Hard veto: glossary_fail, irreversibility without consent, or Skeptic unaddressable (override mode).</p>
+    </div>
+    <div class="verdict-card v-esc">
+      <div class="badge">ESCALATE</div>
+      <p>3+ simultaneous triggers (sequential), or no majority in Trias. Manual resolution required.</p>
+    </div>
+  </div>
+
+  <h3 style="font-size:.85rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:1.5rem 0 .75rem">Veto cascade (sequential aggregation priority)</h3>
+  <div style="max-width:560px;font-size:.85rem">
+    <div style="display:flex;flex-direction:column;gap:.4rem">
+      <div style="display:flex;gap:1rem;padding:.5rem .75rem;background:var(--surface);border-radius:6px;border-left:3px solid var(--block)">
+        <span style="color:var(--muted);font-size:.75rem;width:1.5rem">P1</span>
+        <span><strong>glossary_fail</strong> (Control) → BLOCK</span>
+      </div>
+      <div style="display:flex;gap:1rem;padding:.5rem .75rem;background:var(--surface);border-radius:6px;border-left:3px solid var(--block)">
+        <span style="color:var(--muted);font-size:.75rem;width:1.5rem">P2</span>
+        <span><strong>irreversibility_flag</strong> (Conservator) → BLOCK</span>
+      </div>
+      <div style="display:flex;gap:1rem;padding:.5rem .75rem;background:var(--surface);border-radius:6px;border-left:3px solid var(--escalate)">
+        <span style="color:var(--muted);font-size:.75rem;width:1.5rem">P3</span>
+        <span><strong>3+ triggers simultaneously</strong> → ESCALATE</span>
+      </div>
+      <div style="display:flex;gap:1rem;padding:.5rem .75rem;background:var(--surface);border-radius:6px;border-left:3px solid var(--modify)">
+        <span style="color:var(--muted);font-size:.75rem;width:1.5rem">P4</span>
+        <span><strong>substantial_disagreement</strong> (Control) → REWORK → MODIFY</span>
+      </div>
+      <div style="display:flex;gap:1rem;padding:.5rem .75rem;background:var(--surface);border-radius:6px;border-left:3px solid var(--go)">
+        <span style="color:var(--muted);font-size:.75rem;width:1.5rem">P5</span>
+        <span><strong>scale_down</strong> (Conservator meta) → ADAPT_SHORT → GO</span>
+      </div>
+      <div style="display:flex;gap:1rem;padding:.5rem .75rem;background:var(--surface);border-radius:6px;border-left:3px solid var(--modify)">
+        <span style="color:var(--muted);font-size:.75rem;width:1.5rem">P6</span>
+        <span><strong>scale_up</strong> (Conservator meta) → ADAPT_EXTENDED → MODIFY</span>
+      </div>
+      <div style="display:flex;gap:1rem;padding:.5rem .75rem;background:var(--surface);border-radius:6px;border-left:3px solid var(--accent)">
+        <span style="color:var(--muted);font-size:.75rem;width:1.5rem">P7</span>
+        <span><strong>default</strong> → AGGREGATE → GO / MODIFY / STOP by confidence</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ LAYERS ═══ -->
+<div id="tab-layers" class="tab">
+  <h2 style="margin-bottom:1.25rem;font-size:1.1rem;font-weight:600">Capability map</h2>
+  <div class="layer-diagram">
+    <div style="font-size:.8rem;color:var(--muted);margin-bottom:.25rem">FEATURE LAYER — composes bus primitives</div>
+    <div class="layer-row">
+      <div class="layer-box feat-layer">
+        <div class="name">Sequential mode</div>
+        <div class="id">CPYMOD-SEQ-001</div>
+      </div>
+      <div class="layer-box feat-layer">
+        <div class="name">Dialectic mode</div>
+        <div class="id">CPYMOD-DIA-001</div>
+      </div>
+      <div class="layer-box feat-layer">
+        <div class="name">Trias mode</div>
+        <div class="id">CPYMOD-TRI-001</div>
+      </div>
+    </div>
+    <div class="arrow-layer">↓ depends_on ↓</div>
+    <div style="font-size:.8rem;color:var(--muted);margin-bottom:.25rem">BUS LAYER — shared primitives</div>
+    <div class="layer-row">
+      <div class="layer-box bus-layer">
+        <div class="name">Voice dispatch</div>
+        <div class="id">CPYBUS-VOI-001</div>
+      </div>
+      <div class="layer-box bus-layer">
+        <div class="name">Aggregation</div>
+        <div class="id">CPYBUS-AGG-001</div>
+      </div>
+      <div class="layer-box bus-layer">
+        <div class="name">Public API</div>
+        <div class="id">CPYBUS-API-001</div>
+      </div>
+      <div class="layer-box bus-layer">
+        <div class="name">CLI</div>
+        <div class="id">CPYBUS-CLI-001</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:2rem;max-width:680px">
+    <h3 style="font-size:.85rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.75rem">Coverage</h3>
+    <table style="width:100%;border-collapse:collapse;font-size:.82rem">
+      <tr style="border-bottom:1px solid var(--border);color:var(--muted)">
+        <th style="text-align:left;padding:.4rem .6rem">ID</th>
+        <th style="text-align:left;padding:.4rem .6rem">Capability</th>
+        <th style="text-align:left;padding:.4rem .6rem">Implements</th>
+        <th style="text-align:left;padding:.4rem .6rem">Tested-by</th>
+      </tr>
+      <tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:.4rem .6rem;color:var(--accent);font-family:monospace;font-size:.75rem">CPYBUS-VOI-001</td>
+        <td style="padding:.4rem .6rem">Voice dispatch</td>
+        <td style="padding:.4rem .6rem;color:var(--muted);font-size:.75rem">voices.py</td>
+        <td style="padding:.4rem .6rem;color:var(--muted);font-size:.75rem">—</td>
+      </tr>
+      <tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:.4rem .6rem;color:var(--accent);font-family:monospace;font-size:.75rem">CPYBUS-AGG-001</td>
+        <td style="padding:.4rem .6rem">Aggregation</td>
+        <td style="padding:.4rem .6rem;color:var(--muted);font-size:.75rem">aggregator.py</td>
+        <td style="padding:.4rem .6rem;color:var(--muted);font-size:.75rem">test_sequential.py</td>
+      </tr>
+      <tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:.4rem .6rem;color:var(--accent);font-family:monospace;font-size:.75rem">CPYMOD-SEQ-001</td>
+        <td style="padding:.4rem .6rem">Sequential mode</td>
+        <td style="padding:.4rem .6rem;color:var(--muted);font-size:.75rem">modes/sequential.py</td>
+        <td style="padding:.4rem .6rem;color:var(--muted);font-size:.75rem">test_sequential.py</td>
+      </tr>
+      <tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:.4rem .6rem;color:var(--accent);font-family:monospace;font-size:.75rem">CPYMOD-DIA-001</td>
+        <td style="padding:.4rem .6rem">Dialectic mode</td>
+        <td style="padding:.4rem .6rem;color:var(--muted);font-size:.75rem">modes/dialectic.py</td>
+        <td style="padding:.4rem .6rem;color:var(--muted);font-size:.75rem">test_dialectic.py</td>
+      </tr>
+      <tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:.4rem .6rem;color:var(--accent);font-family:monospace;font-size:.75rem">CPYMOD-TRI-001</td>
+        <td style="padding:.4rem .6rem">Trias mode</td>
+        <td style="padding:.4rem .6rem;color:var(--muted);font-size:.75rem">modes/trias.py</td>
+        <td style="padding:.4rem .6rem;color:var(--muted);font-size:.75rem">test_trias.py</td>
+      </tr>
+      <tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:.4rem .6rem;color:var(--accent);font-family:monospace;font-size:.75rem">CPYBUS-API-001</td>
+        <td style="padding:.4rem .6rem">Public API</td>
+        <td style="padding:.4rem .6rem;color:var(--muted);font-size:.75rem">__init__.py</td>
+        <td style="padding:.4rem .6rem;color:var(--muted);font-size:.75rem">—</td>
+      </tr>
+      <tr>
+        <td style="padding:.4rem .6rem;color:var(--accent);font-family:monospace;font-size:.75rem">CPYBUS-CLI-001</td>
+        <td style="padding:.4rem .6rem">CLI</td>
+        <td style="padding:.4rem .6rem;color:var(--muted);font-size:.75rem">cli.py</td>
+        <td style="padding:.4rem .6rem;color:var(--muted);font-size:.75rem">—</td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+<footer>consilium-py v0.1.0 · <a href="https://github.com/alxmax/Consilium" style="color:var(--accent);text-decoration:none">Consilium skill</a> · generated-from: CPYBUS-API-001</footer>
+
+<script>
+function showTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+</body>
+</html>

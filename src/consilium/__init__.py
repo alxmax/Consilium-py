@@ -1,3 +1,4 @@
+# implements: CPYBUS-API-001
 from consilium.modes.dialectic import run_dialectic
 from consilium.modes.sequential import run_sequential
 from consilium.modes.trias import run_trias

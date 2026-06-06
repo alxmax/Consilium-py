@@ -1,4 +1,6 @@
 """Sequential aggregation: raw voice text → Report.
+# implements: CPYBUS-AGG-001
+
 
 The _run_sequential_scheme() function is adapted from
 Consilium skill scripts/aggregator.py (aggregate_sequential).

@@ -120,5 +120,4 @@ Example output for a meta_scope_mismatch case:
 }
 ```
 
-<!-- implements: CONSILIUM-VOICE-SKEPTIC-001 -->
 

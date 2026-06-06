@@ -22,5 +22,4 @@ Conservator assesses risk) — but through Steward's perspective.
 
 Your voice output will be re-weighted by the personality's aggregator weights — focus on shifting perception through your role's lens, not on inflating or deflating numerical scores directly.
 
-<!-- implements: CONSILIUM-LENS-STEWARD-001 -->
 
