@@ -11,7 +11,8 @@ import asyncio
 from typing import Any
 
 from consilium.aggregator import aggregate_sequential
-from consilium.models import DeliberationInput, Report, VoiceOutput
+from consilium.models import DeliberationInput, Report, SkepticObjection, VoiceOutput
+from consilium.skeptic import challenge as skeptic_challenge
 from consilium.voices import call_voice, load_prompt
 
 PERSONALITIES = ["pioneer", "architect", "steward"]
@@ -38,20 +39,21 @@ def _run_personality(name: str, inp: DeliberationInput) -> Report:
     if inp.context:
         proposal_msg += f"\n\nCONTEXT:\n{inp.context}"
 
-    cons_out = call_voice(
-        "conservator",
-        lens + sep + load_prompt("conservator"),
-        proposal_msg,
-        inp.model,
-    )
-    gen_msg = f"{proposal_msg}\n\n--- CONSERVATOR OUTPUT ---\n{cons_out}"
+    # Generator runs FIRST — blind to risk framing (anti-anchoring).
     gen_out = call_voice(
         "generator",
         lens + sep + load_prompt("generator"),
-        gen_msg,
+        proposal_msg,
         inp.model,
     )
-    ctrl_msg = f"{gen_msg}\n\n--- GENERATOR OUTPUT ---\n{gen_out}"
+    cons_msg = f"{proposal_msg}\n\n--- GENERATOR OUTPUT ---\n{gen_out}"
+    cons_out = call_voice(
+        "conservator",
+        lens + sep + load_prompt("conservator"),
+        cons_msg,
+        inp.model,
+    )
+    ctrl_msg = f"{cons_msg}\n\n--- CONSERVATOR OUTPUT ---\n{cons_out}"
     ctrl_out = call_voice(
         "control",
         lens + sep + load_prompt("control"),
@@ -113,7 +115,7 @@ def _team_vote(
 
 # ── public entry point ───────────────────────────────────────────────────────
 
-def run_trias(inp: DeliberationInput) -> Report:
+def run_trias(inp: DeliberationInput, skeptic_can_override: bool = False) -> Report:
     results = asyncio.run(_run_all(inp))
 
     # Collect what each personality chose
@@ -161,6 +163,29 @@ def run_trias(inp: DeliberationInput) -> Report:
             score=report.confidence,
         ))
 
+    # Post-vote Skeptic — fires only on a decisive vote (a winner emerged).
+    # Advisory by default: never flips the winner, only annotates. With
+    # skeptic_can_override it can downgrade the verdict (mirrors Dialectic).
+    skeptic: SkepticObjection | None = None
+    if winner_id is not None:
+        sk, skeptic_voice = skeptic_challenge(winner_id, inp)
+        skeptic = sk
+        voices.append(skeptic_voice)
+        if skeptic_can_override and sk.can_object:
+            if sk.addressable == "unaddressable":
+                verdict = "BLOCK"
+                confidence = 0.1
+                recommendation = f"Skeptic blocked winner ({sk.failure_mode}): {sk.notes}"
+            elif sk.addressable == "requires_redesign":
+                verdict = "MODIFY"
+                confidence = min(confidence, 0.5)
+                recommendation = f"Skeptic requires redesign ({sk.failure_mode}): {sk.notes}"
+            elif sk.addressable == "in_place" and verdict == "GO":
+                verdict = "MODIFY"
+                recommendation = f"Skeptic: in-place fix needed ({sk.failure_mode}). {recommendation}"
+        elif sk.can_object:
+            recommendation = f"{recommendation} | Skeptic (advisory): {sk.notes}"
+
     return Report(
         verdict=verdict,  # type: ignore[arg-type]
         confidence=round(confidence, 3),
@@ -169,4 +194,5 @@ def run_trias(inp: DeliberationInput) -> Report:
         chosen=winner_id,
         pipeline_executed=True,
         mode="trias",
+        skeptic=skeptic,
     )

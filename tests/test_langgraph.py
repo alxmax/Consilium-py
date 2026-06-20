@@ -38,7 +38,7 @@ class TestRunLangGraph(unittest.TestCase):
     def _run(self, proposal="Add health check"):
         from consilium.models import DeliberationInput
         from consilium.modes.langgraph_mode import run_langgraph
-        with patch("consilium.modes.langgraph_mode.call_voice", side_effect=_voice_iter(CONS, GEN, CTRL)), \
+        with patch("consilium.modes.langgraph_mode.call_voice", side_effect=_voice_iter(GEN, CONS, CTRL)), \
              patch("consilium.modes.langgraph_mode.load_prompt", return_value=""):
             return run_langgraph(DeliberationInput(proposal=proposal))
 
@@ -54,12 +54,12 @@ class TestRunLangGraph(unittest.TestCase):
         from consilium.modes.langgraph_mode import run_langgraph
         import consilium.modes.langgraph_mode as lg
 
-        with patch("consilium.modes.sequential.call_voice", side_effect=_voice_iter(CONS, GEN, CTRL)), \
+        with patch("consilium.modes.sequential.call_voice", side_effect=_voice_iter(GEN, CONS, CTRL)), \
              patch("consilium.modes.sequential.load_prompt", return_value=""):
             seq = run_sequential(DeliberationInput(proposal="Add health check"))
 
         lg._graph = None
-        with patch("consilium.modes.langgraph_mode.call_voice", side_effect=_voice_iter(CONS, GEN, CTRL)), \
+        with patch("consilium.modes.langgraph_mode.call_voice", side_effect=_voice_iter(GEN, CONS, CTRL)), \
              patch("consilium.modes.langgraph_mode.load_prompt", return_value=""):
             lg_rep = run_langgraph(DeliberationInput(proposal="Add health check"))
 
@@ -69,7 +69,7 @@ class TestRunLangGraph(unittest.TestCase):
         from consilium import deliberate
         import consilium.modes.langgraph_mode as lg
         lg._graph = None
-        with patch("consilium.modes.langgraph_mode.call_voice", side_effect=_voice_iter(CONS, GEN, CTRL)), \
+        with patch("consilium.modes.langgraph_mode.call_voice", side_effect=_voice_iter(GEN, CONS, CTRL)), \
              patch("consilium.modes.langgraph_mode.load_prompt", return_value=""):
             report = deliberate("Add health check", mode="langgraph")
         self.assertEqual(report.mode, "langgraph")

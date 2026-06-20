@@ -3,7 +3,7 @@ id: CPYMOD-DIA-001
 status: confirmed
 layer: feature
 owner: human
-depends_on: [CPYMOD-SEQ-001, CPYBUS-VOI-001]
+depends_on: [CPYMOD-SEQ-001, CPYBUS-VOI-001, CPYBUS-SKEPTIC-001]
 ---
 
 # Dialectic deliberation mode — Sequential + Skeptic challenger
@@ -39,4 +39,5 @@ None — doc is unambiguous.
 ## WHERE — Current implementation
 
 - `src/consilium/modes/dialectic.py`
+- `src/consilium/skeptic.py` (shared Skeptic challenge — `CPYBUS-SKEPTIC-001`)
 - `tests/test_dialectic.py`
