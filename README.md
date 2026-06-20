@@ -21,7 +21,9 @@ Three AI voices deliberate on your proposal in a structured pipeline:
 The aggregator produces a verdict: `GO`, `MODIFY`, `STOP`, `BLOCK`, or `ESCALATE`.
 Confidence score (0.0–1.0) reflects inter-voice agreement.
 
-For a visual walkthrough, open [`docs/Consilium-py Explained (standalone).html`](docs/Consilium-py%20Explained%20(standalone).html) locally.
+For a visual walkthrough, open [`docs/index.html`](docs/index.html) — a "how it works" page with
+links to the requirement map and the architecture diagram — or the full architecture poster
+[`docs/consilium_architecture.html`](docs/consilium_architecture.html).
 
 ## Install
 
@@ -34,7 +36,6 @@ export ANTHROPIC_API_KEY=sk-ant-...
 
 | Extra | What it adds | Install |
 |---|---|---|
-| `[server]` | FastAPI REST endpoint + SSE streaming (`POST /deliberate`) | `pip install 'consilium-py[server]'` |
 | `[rag]` | ChromaDB context injection — retrieves similar past decisions | `pip install 'consilium-py[rag]'` |
 | `[langgraph]` | LangGraph orchestration mode replacing the sequential pipeline | `pip install 'consilium-py[langgraph]'` |
 | `[litellm]` | Provider-agnostic voices — use any model via `provider/model` | `pip install 'consilium-py[litellm]'` |
@@ -110,14 +111,6 @@ The `CONSILIUM_MODEL` environment variable overrides the `--model` / `model=` pa
 ```bash
 export CONSILIUM_MODEL=openai/gpt-4o
 consilium deliberate "Add caching"
-```
-
-### FastAPI server (requires `[server]` extra)
-
-```bash
-pip install 'consilium-py[server]'
-uvicorn consilium.server:app
-# POST /deliberate  { "proposal": "...", "mode": "sequential" }
 ```
 
 ## Requirements

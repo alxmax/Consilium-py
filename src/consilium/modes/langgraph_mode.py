@@ -1,6 +1,5 @@
-"""LangGraph orchestration mode — Generator→Conservator→Control as a StateGraph.
+"""LangGraph orchestration mode — Generator→Conservator→Control as a StateGraph."""
 # implements: CPYEXT-LG-001
-"""
 from __future__ import annotations
 
 from typing import TypedDict

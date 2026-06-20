@@ -1,10 +1,10 @@
 """Trias mode — 3 parallel personalities (Pioneer / Architect / Steward).
-# implements: CPYMOD-TRI-001
 
 Each personality runs a full Sequential deliberation with its lens prepended
 to every voice prompt. The 3 results are aggregated by democratic majority vote.
 API calls are dispatched in parallel via asyncio.to_thread (thread-pool I/O).
 """
+# implements: CPYMOD-TRI-001
 from __future__ import annotations
 
 import asyncio
