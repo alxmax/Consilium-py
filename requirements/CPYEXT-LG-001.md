@@ -8,11 +8,11 @@ depends_on: [CPYBUS-API-001, CPYBUS-VOI-001, CPYBUS-AGG-001]
 
 # LangGraph orchestration mode
 
-Optional `[langgraph]` extra that re-expresses the Conservator→Generator→Control pipeline as a LangGraph `StateGraph`. Adds `mode="langgraph"` as an additional dispatch option alongside `sequential`, `dialectic`, and `trias`. Demonstrates LangGraph state machine orchestration patterns.
+Optional `[langgraph]` extra that re-expresses the Generator→Conservator→Control pipeline as a LangGraph `StateGraph`. Adds `mode="langgraph"` as an additional dispatch option alongside `sequential`, `dialectic`, and `trias`. Demonstrates LangGraph state machine orchestration patterns.
 
 ## WHAT — Contract
 
-- `run_langgraph(inp)` shall run the three voices in the same order as `run_sequential` (Conservator→Generator→Control), using the same `call_voice()` and prompt loading contract.
+- `run_langgraph(inp)` shall run the three voices in the same order as `run_sequential` (Generator→Conservator→Control), using the same `call_voice()` and prompt loading contract.
 - The pipeline shall be expressed as a `StateGraph` with `DeliberationState(TypedDict)` holding `proposal`, `context`, `model`, `conservator_out`, `generator_out`, `control_out`.
 - Each node shall call `call_voice()` from `voices.py` directly — no `langchain-anthropic` dependency.
 - `aggregate_sequential` shall be called on the final state to produce the `Report`.
