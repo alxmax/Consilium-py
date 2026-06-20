@@ -1,5 +1,5 @@
 {
-  "engine_version": "2026-06-05.2",
+  "engine_version": "2026-06-19.1",
   "repo": "alxmax/Consilium-py",
   "nodes": [
     {
@@ -10,7 +10,7 @@
       "title": "Sequential aggregation — veto cascade, voice extraction, Report assembly",
       "intent": "",
       "contract": [
-        "`aggregate_sequential(cons_text, gen_text, ctrl_text, _inp)` shall parse each text argument as JSON (via `extract_json`) and run the veto cascade in this fixed priority order:",
+        "`aggregate_sequential(cons_text, gen_text, ctrl_text, _inp)` shall parse each text argument as JSON (via `extract_json`) and run the veto cascade in this fixed priority order: 1. `glossary_fail` from Control → `BLOCK` 2. `irreversibility_flag` in any Conservator score → `BLOCK` 3. Three or more simultaneous triggers (substantial disagreement, scale_down/scale_up, generator abstain) → `ESCALATE` 4. Substantial disagreement in Control → `REWORK` → mapped to `MODIFY` 5. `scale_down` meta-recommendation → `ADAPT_SHORT` → mapped to `GO` 6. `scale_up` meta-recommendation → `ADAPT_EXTENDED` → mapped to `MODIFY` 7. Default → `AGGREGATE` (normal scoring)",
         "In the `AGGREGATE` path, `confidence` shall equal `confidence_methodology` (0.0–1.0). A `confidence_methodology ≥ 0.7` maps to verdict `GO`; `≥ 0.4` to `MODIFY`; below to `STOP`.",
         "Non-`AGGREGATE` results map as: `BLOCK`→`BLOCK`, `REWORK`→`MODIFY`, `ESCALATE`→`ESCALATE`, `ADAPT_SHORT`→`GO`, `ADAPT_EXTENDED`→`MODIFY`. `REWORK` is not an exposed verdict in `Report`; it maps to `MODIFY` so callers receive a consistent surface. The `recommendation` field carries the rework context. Bypass verdicts (BLOCK, REWORK, ESCALATE) carry categorical confidence values (e.g. `0.1` for BLOCK); no scoring floor is applied to them.",
         "The returned `Report` shall contain one `VoiceOutput` per voice (conservator, generator, control) with `vote`, `score`, `reasoning`, and `concerns` fields populated from the parsed JSON."
@@ -37,10 +37,12 @@
         "CPYMOD-SEQ-001",
         "CPYMOD-TRI-001"
       ],
+      "satisfies": [],
+      "satisfied_by": [],
       "members": [
         {
           "role": "implements",
-          "loc": "src/consilium/aggregator.py:2"
+          "loc": "src/consilium/aggregator.py:6"
         },
         {
           "role": "tested-by",
@@ -49,6 +51,7 @@
       ],
       "test_exempt": null,
       "milestone": null,
+      "priority": "",
       "risks": []
     },
     {
@@ -95,11 +98,9 @@
         "CPYEXT-LTL-001",
         "CPYEXT-RAG-001"
       ],
+      "satisfies": [],
+      "satisfied_by": [],
       "members": [
-        {
-          "role": "generated-from",
-          "loc": "docs/architecture.html:496"
-        },
         {
           "role": "implements",
           "loc": "src/consilium/__init__.py:1"
@@ -111,6 +112,7 @@
       ],
       "test_exempt": null,
       "milestone": null,
+      "priority": "",
       "risks": []
     },
     {
@@ -153,6 +155,8 @@
       "used_by": [
         "CPYEXT-LTL-001"
       ],
+      "satisfies": [],
+      "satisfied_by": [],
       "members": [
         {
           "role": "implements",
@@ -165,6 +169,61 @@
       ],
       "test_exempt": null,
       "milestone": null,
+      "priority": "",
+      "risks": []
+    },
+    {
+      "id": "CPYBUS-SKEPTIC-001",
+      "layer": "bus",
+      "status": "confirmed",
+      "area": "CPYBUS",
+      "title": "Shared Skeptic challenge",
+      "intent": "",
+      "contract": [
+        "`parse_skeptic(skeptic_out, raw_text)` shall map a raw Skeptic JSON output to `(SkepticObjection, VoiceOutput)`:",
+        "`can_object` coerced to `bool`; `objection.concrete_concerns` → list; `objection.failure_mode`/`objection.addressable` → optional.",
+        "The `VoiceOutput` vote is `GO` when `can_object` is false, `STOP` when `addressable=\"unaddressable\"`, else `MODIFY`.",
+        "Score: `0.9` (no objection), `0.5` (objection), `0.2` (unaddressable objection).",
+        "`challenge(chosen_id, inp)` shall build a Skeptic input containing only the chosen id + summary (the proposal), the proposal as `success_criterion`, the optional context, then call the `skeptic` voice once and return `parse_skeptic(...)`.",
+        "The Skeptic dispatch shall use `call_voice` / `load_prompt` from `voices.py` — no separate model client."
+      ],
+      "verify": [],
+      "notes": [],
+      "current_impl": [
+        "`src/consilium/skeptic.py`",
+        "exercised via `tests/test_dialectic.py` and `tests/test_trias.py`"
+      ],
+      "acc": [
+        "Given a `can_object=false` output, when `parse_skeptic` is called, then the voice vote is `GO` and score `0.9`.",
+        "Given `can_object=true, addressable=\"unaddressable\"`, then the voice vote is `STOP` and score `0.2`.",
+        "Given a chosen id and proposal, when `challenge` is called (with mocked `call_voice`), then exactly one `skeptic` voice call is made and a `(SkepticObjection, VoiceOutput)` pair is returned."
+      ],
+      "accept": "- Given a `can_object=false` output, when `parse_skeptic` is called, then the voice vote is `GO` and score `0.9`.\n- Given `can_object=true, addressable=\"unaddressable\"`, then the voice vote is `STOP` and score `0.2`.\n- Given a chosen id and proposal, when `challenge` is called (with mocked `call_voice`), then exactly one `skeptic` voice call is made and a `(SkepticObjection, VoiceOutput)` pair is returned.",
+      "input": "",
+      "output": "",
+      "desc": "",
+      "deps": [
+        "CPYBUS-VOI-001"
+      ],
+      "used_by": [
+        "CPYMOD-DIA-001",
+        "CPYMOD-TRI-001"
+      ],
+      "satisfies": [],
+      "satisfied_by": [],
+      "members": [
+        {
+          "role": "implements",
+          "loc": "src/consilium/skeptic.py:7"
+        },
+        {
+          "role": "tested-by",
+          "loc": "tests/test_skeptic.py:2"
+        }
+      ],
+      "test_exempt": null,
+      "milestone": null,
+      "priority": "",
       "risks": []
     },
     {
@@ -198,6 +257,7 @@
       "deps": [],
       "used_by": [
         "CPYBUS-AGG-001",
+        "CPYBUS-SKEPTIC-001",
         "CPYEXT-LG-001",
         "CPYEXT-LTL-001",
         "CPYEXT-RAG-001",
@@ -205,6 +265,8 @@
         "CPYMOD-SEQ-001",
         "CPYMOD-TRI-001"
       ],
+      "satisfies": [],
+      "satisfied_by": [],
       "members": [
         {
           "role": "implements",
@@ -217,6 +279,7 @@
       ],
       "test_exempt": null,
       "milestone": null,
+      "priority": "",
       "risks": []
     },
     {
@@ -227,7 +290,7 @@
       "title": "LangGraph orchestration mode",
       "intent": "",
       "contract": [
-        "`run_langgraph(inp)` shall run the three voices in the same order as `run_sequential` (Conservator→Generator→Control), using the same `call_voice()` and prompt loading contract.",
+        "`run_langgraph(inp)` shall run the three voices in the same order as `run_sequential` (Generator→Conservator→Control), using the same `call_voice()` and prompt loading contract.",
         "The pipeline shall be expressed as a `StateGraph` with `DeliberationState(TypedDict)` holding `proposal`, `context`, `model`, `conservator_out`, `generator_out`, `control_out`.",
         "Each node shall call `call_voice()` from `voices.py` directly — no `langchain-anthropic` dependency.",
         "`aggregate_sequential` shall be called on the final state to produce the `Report`.",
@@ -259,6 +322,8 @@
         "CPYBUS-AGG-001"
       ],
       "used_by": [],
+      "satisfies": [],
+      "satisfied_by": [],
       "members": [
         {
           "role": "implements",
@@ -271,6 +336,7 @@
       ],
       "test_exempt": null,
       "milestone": null,
+      "priority": "",
       "risks": []
     },
     {
@@ -312,7 +378,13 @@
         "CPYBUS-CLI-001"
       ],
       "used_by": [],
+      "satisfies": [],
+      "satisfied_by": [],
       "members": [
+        {
+          "role": "implements",
+          "loc": "src/consilium/__init__.py:2"
+        },
         {
           "role": "implements",
           "loc": "src/consilium/cli.py:3"
@@ -320,10 +392,6 @@
         {
           "role": "implements",
           "loc": "src/consilium/voices.py:3"
-        },
-        {
-          "role": "implements",
-          "loc": "src/consilium/__init__.py:2"
         },
         {
           "role": "tested-by",
@@ -336,6 +404,7 @@
       ],
       "test_exempt": null,
       "milestone": null,
+      "priority": "",
       "risks": []
     },
     {
@@ -376,6 +445,8 @@
         "CPYBUS-VOI-001"
       ],
       "used_by": [],
+      "satisfies": [],
+      "satisfied_by": [],
       "members": [
         {
           "role": "implements",
@@ -388,6 +459,7 @@
       ],
       "test_exempt": null,
       "milestone": null,
+      "priority": "",
       "risks": []
     },
     {
@@ -414,6 +486,7 @@
       "notes": [],
       "current_impl": [
         "`src/consilium/modes/dialectic.py`",
+        "`src/consilium/skeptic.py` (shared Skeptic challenge — `CPYBUS-SKEPTIC-001`)",
         "`tests/test_dialectic.py`"
       ],
       "acc": [
@@ -428,11 +501,14 @@
       "desc": "",
       "deps": [
         "CPYMOD-SEQ-001",
-        "CPYBUS-VOI-001"
+        "CPYBUS-VOI-001",
+        "CPYBUS-SKEPTIC-001"
       ],
       "used_by": [
         "CPYBUS-API-001"
       ],
+      "satisfies": [],
+      "satisfied_by": [],
       "members": [
         {
           "role": "implements",
@@ -445,6 +521,7 @@
       ],
       "test_exempt": null,
       "milestone": null,
+      "priority": "",
       "risks": []
     },
     {
@@ -455,7 +532,7 @@
       "title": "Sequential deliberation mode",
       "intent": "",
       "contract": [
-        "`run_sequential(inp)` shall call the three voices in this order: Conservator first (no prior context), Generator second (sees Conservator output), Control third (sees both).",
+        "`run_sequential(inp)` shall call the three voices in this order: Generator first (no prior context — blind to risk framing), Conservator second (sees Generator's candidates), Control third (sees both).",
         "Each voice call shall use the system prompt from `prompts/voices/{name}.md` with the proposal and optional context in the user message.",
         "The function shall return the `Report` produced by `aggregate_sequential`.",
         "The `mode` field of the returned `Report` shall be `\"sequential\"`.",
@@ -470,9 +547,9 @@
       "acc": [
         "Given a proposal with no risk triggers, when `run_sequential` is called (with mocked `call_voice`), then `report.mode == \"sequential\"` and `report.pipeline_executed is True`.",
         "Given Conservator output with `irreversibility_flag: true`, when `run_sequential` is called, then `report.verdict == \"BLOCK\"`.",
-        "Given clean voice outputs, when `run_sequential` is called, then `len(report.voices) == 3` with voices named conservator, generator, control."
+        "Given clean voice outputs, when `run_sequential` is called, then `len(report.voices) == 3` with voices named generator, conservator, control."
       ],
-      "accept": "- Given a proposal with no risk triggers, when `run_sequential` is called (with mocked `call_voice`), then `report.mode == \"sequential\"` and `report.pipeline_executed is True`.\n- Given Conservator output with `irreversibility_flag: true`, when `run_sequential` is called, then `report.verdict == \"BLOCK\"`.\n- Given clean voice outputs, when `run_sequential` is called, then `len(report.voices) == 3` with voices named conservator, generator, control.",
+      "accept": "- Given a proposal with no risk triggers, when `run_sequential` is called (with mocked `call_voice`), then `report.mode == \"sequential\"` and `report.pipeline_executed is True`.\n- Given Conservator output with `irreversibility_flag: true`, when `run_sequential` is called, then `report.verdict == \"BLOCK\"`.\n- Given clean voice outputs, when `run_sequential` is called, then `len(report.voices) == 3` with voices named generator, conservator, control.",
       "input": "",
       "output": "",
       "desc": "",
@@ -484,6 +561,8 @@
         "CPYBUS-API-001",
         "CPYMOD-DIA-001"
       ],
+      "satisfies": [],
+      "satisfied_by": [],
       "members": [
         {
           "role": "implements",
@@ -496,6 +575,7 @@
       ],
       "test_exempt": null,
       "milestone": null,
+      "priority": "",
       "risks": []
     },
     {
@@ -503,17 +583,21 @@
       "layer": "feature",
       "status": "confirmed",
       "area": "CPYMOD",
-      "title": "Trias deliberation mode — 3 parallel personalities with democratic vote",
+      "title": "Trias deliberation mode — 3 parallel personalities + post-vote Skeptic",
       "intent": "",
       "contract": [
-        "`run_trias(inp)` shall dispatch `_run_personality` for each of the three personalities concurrently via `asyncio.to_thread` + `asyncio.gather`.",
-        "Each personality shall prepend its lens (`prompts/voices/{name}_lens.md`) to each voice system prompt, separated from the core prompt by `\\n\\n---\\n\\n`.",
+        "`run_trias(inp, skeptic_can_override=False)` shall dispatch `_run_personality` for each of the three personalities concurrently via `asyncio.to_thread` + `asyncio.gather`.",
+        "Each personality runs its internal Sequential pipeline in Generator-first order (Generator → Conservator → Control), with its lens (`prompts/voices/{name}_lens.md`) prepended to each voice system prompt, separated from the core prompt by `\\n\\n---\\n\\n`.",
         "After all three complete, the function shall perform a majority vote over the three `chosen` values:",
         "If ≥ 2 personalities chose the same candidate → that candidate wins.",
         "Otherwise → no winner.",
         "Vote confidence shall follow: `3-0` → 0.95, `2-1` → 0.75, `2-0` → 0.70. No majority → verdict `ESCALATE`, confidence 0.30.",
         "When a winner exists, the verdict and recommendation are taken from the winning personality's `Report`.",
-        "The returned `Report` shall contain exactly three `VoiceOutput` entries, one per personality (pioneer, architect, steward), not the 9 individual voice calls.",
+        "**Post-vote Skeptic.** When (and only when) a winner exists, one Skeptic (`CPYBUS-SKEPTIC-001`) shall challenge the winning candidate. Its objection is attached as `report.skeptic` and a `voice=\"skeptic\"` `VoiceOutput` is appended.",
+        "**Advisory** (`skeptic_can_override=False`, default): the vote verdict, confidence, and `chosen` are unchanged regardless of the objection; an advisory note may be appended to the recommendation.",
+        "**Override** (`skeptic_can_override=True`): a `can_object=True` objection downgrades the verdict — `in_place`+`GO`→`MODIFY`; `requires_redesign`→`MODIFY`, confidence ≤ 0.5; `unaddressable`→`BLOCK`, confidence 0.1. `chosen` is never changed.",
+        "On `ESCALATE` (no winner) the Skeptic does not fire and `report.skeptic` is `None`.",
+        "The returned `Report` shall contain one `VoiceOutput` per personality (pioneer, architect, steward) plus, on a decisive vote, a `skeptic` entry — i.e. 3 voices on `ESCALATE`, 4 on a decisive vote — not the individual voice calls.",
         "The `mode` field of the returned `Report` shall be `\"trias\"`.",
         "The democratic vote is over `chosen` candidate IDs, not over verdicts. When two personalities agree on `chosen`, the winning personality's `Report` (with its verdict) is used verbatim. The public API is synchronous (`asyncio.run` inside `run_trias`); making it async would require all callers to be async."
       ],
@@ -524,26 +608,31 @@
         "`tests/test_trias.py`"
       ],
       "acc": [
-        "Given three personalities all returning `chosen=\"a\"`, when `run_trias` is called, then `report.verdict == \"GO\"`, `report.confidence == 0.95`, `report.chosen == \"a\"`, `report.mode == \"trias\"`.",
+        "Given three personalities all returning `chosen=\"a\"` and a no-objection Skeptic, when `run_trias` is called, then `report.verdict == \"GO\"`, `report.confidence == 0.95`, `report.chosen == \"a\"`, `report.mode == \"trias\"`.",
         "Given two personalities returning `chosen=\"a\"` and one returning `chosen=\"b\"`, then `report.confidence == 0.75` and `report.chosen == \"a\"`.",
-        "Given three personalities each returning a different `chosen`, then `report.verdict == \"ESCALATE\"` and `report.chosen is None`.",
-        "The `report.voices` list shall contain exactly 3 entries with names `{\"pioneer\", \"architect\", \"steward\"}`."
+        "Given three personalities each returning a different `chosen`, then `report.verdict == \"ESCALATE\"`, `report.chosen is None`, `report.skeptic is None`, and `len(report.voices) == 3` (no Skeptic).",
+        "Given a decisive vote, then `report.voices` contains 4 entries: `{\"pioneer\", \"architect\", \"steward\", \"skeptic\"}`.",
+        "Given advisory mode and a Skeptic with `can_object=True`, then `chosen` and verdict are unchanged.",
+        "Given override mode and a Skeptic with `addressable=\"unaddressable\"`, then `report.verdict == \"BLOCK\"` and confidence `0.1`."
       ],
-      "accept": "- Given three personalities all returning `chosen=\"a\"`, when `run_trias` is called, then `report.verdict == \"GO\"`, `report.confidence == 0.95`, `report.chosen == \"a\"`, `report.mode == \"trias\"`.\n- Given two personalities returning `chosen=\"a\"` and one returning `chosen=\"b\"`, then `report.confidence == 0.75` and `report.chosen == \"a\"`.\n- Given three personalities each returning a different `chosen`, then `report.verdict == \"ESCALATE\"` and `report.chosen is None`.\n- The `report.voices` list shall contain exactly 3 entries with names `{\"pioneer\", \"architect\", \"steward\"}`.",
+      "accept": "- Given three personalities all returning `chosen=\"a\"` and a no-objection Skeptic, when `run_trias` is called, then `report.verdict == \"GO\"`, `report.confidence == 0.95`, `report.chosen == \"a\"`, `report.mode == \"trias\"`.\n- Given two personalities returning `chosen=\"a\"` and one returning `chosen=\"b\"`, then `report.confidence == 0.75` and `report.chosen == \"a\"`.\n- Given three personalities each returning a different `chosen`, then `report.verdict == \"ESCALATE\"`, `report.chosen is None`, `report.skeptic is None`, and `len(report.voices) == 3` (no Skeptic).\n- Given a decisive vote, then `report.voices` contains 4 entries: `{\"pioneer\", \"architect\", \"steward\", \"skeptic\"}`.\n- Given advisory mode and a Skeptic with `can_object=True`, then `chosen` and verdict are unchanged.\n- Given override mode and a Skeptic with `addressable=\"unaddressable\"`, then `report.verdict == \"BLOCK\"` and confidence `0.1`.",
       "input": "",
       "output": "",
       "desc": "",
       "deps": [
         "CPYBUS-VOI-001",
-        "CPYBUS-AGG-001"
+        "CPYBUS-AGG-001",
+        "CPYBUS-SKEPTIC-001"
       ],
       "used_by": [
         "CPYBUS-API-001"
       ],
+      "satisfies": [],
+      "satisfied_by": [],
       "members": [
         {
           "role": "implements",
-          "loc": "src/consilium/modes/trias.py:2"
+          "loc": "src/consilium/modes/trias.py:7"
         },
         {
           "role": "tested-by",
@@ -552,6 +641,7 @@
       ],
       "test_exempt": null,
       "milestone": null,
+      "priority": "",
       "risks": []
     }
   ],
@@ -575,6 +665,10 @@
     [
       "CPYBUS-CLI-001",
       "CPYBUS-API-001"
+    ],
+    [
+      "CPYBUS-SKEPTIC-001",
+      "CPYBUS-VOI-001"
     ],
     [
       "CPYEXT-LG-001",
@@ -617,6 +711,10 @@
       "CPYBUS-VOI-001"
     ],
     [
+      "CPYMOD-DIA-001",
+      "CPYBUS-SKEPTIC-001"
+    ],
+    [
       "CPYMOD-SEQ-001",
       "CPYBUS-VOI-001"
     ],
@@ -631,6 +729,10 @@
     [
       "CPYMOD-TRI-001",
       "CPYBUS-AGG-001"
+    ],
+    [
+      "CPYMOD-TRI-001",
+      "CPYBUS-SKEPTIC-001"
     ]
   ],
   "todos": []
