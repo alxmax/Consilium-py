@@ -1,10 +1,10 @@
 """Shared Skeptic challenge — one adversarial pass on a chosen approach.
-# implements: CPYBUS-SKEPTIC-001
 
 Used by Dialectic (post-Sequential) and Trias (post-vote, on the winner).
 The Skeptic sees ONLY the chosen approach, never the full deliberation —
 its job is to produce a concrete objection or attest there is none.
 """
+# implements: CPYBUS-SKEPTIC-001
 from __future__ import annotations
 
 from consilium.models import DeliberationInput, SkepticObjection, VoiceOutput

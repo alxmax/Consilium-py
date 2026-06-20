@@ -1,6 +1,5 @@
-"""Unit tests for RAG module — chromadb mocked, temp dirs for filesystem.
+"""Unit tests for RAG module — chromadb mocked, temp dirs for filesystem."""
 # tested-by: CPYEXT-RAG-001
-"""
 import io
 import json
 import sys

@@ -1,6 +1,5 @@
-"""Unit tests for LangGraph orchestration mode.
+"""Unit tests for LangGraph orchestration mode."""
 # tested-by: CPYEXT-LG-001
-"""
 import json
 import sys
 import unittest

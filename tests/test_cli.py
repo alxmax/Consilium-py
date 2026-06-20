@@ -1,6 +1,5 @@
-"""CLI acceptance tests.
+"""CLI acceptance tests."""
 # tested-by: CPYBUS-CLI-001
-"""
 import json
 import unittest
 from unittest.mock import MagicMock, patch
