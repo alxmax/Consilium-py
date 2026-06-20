@@ -7,10 +7,9 @@ import os
 from consilium.modes.dialectic import run_dialectic
 from consilium.modes.sequential import run_sequential
 from consilium.modes.trias import run_trias
-from consilium.modes.trias_v2 import run_trias_v2
 from consilium.models import DeliberationInput, Report
 
-_SUPPORTED_MODES = ("sequential", "dialectic", "trias", "trias_v2", "langgraph")
+_SUPPORTED_MODES = ("sequential", "dialectic", "trias", "langgraph")
 
 
 def deliberate(
@@ -37,8 +36,6 @@ def deliberate(
         report = run_dialectic(inp, skeptic_can_override=skeptic_can_override)
     elif mode == "trias":
         report = run_trias(inp)
-    elif mode == "trias_v2":
-        report = run_trias_v2(inp)
     elif mode == "langgraph":
         from consilium.modes.langgraph_mode import run_langgraph  # noqa: PLC0415
         report = run_langgraph(inp)
