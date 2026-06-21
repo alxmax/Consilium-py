@@ -5,7 +5,7 @@ from typing import Literal
 class DeliberationInput(BaseModel):
     proposal: str
     context: str = ""
-    model: str = "claude-sonnet-4-6"
+    model: str = "openrouter/google/gemini-2.0-flash-001"
     effort: Literal["low", "medium", "high"] = "medium"
 
 
