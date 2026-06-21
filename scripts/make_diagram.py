@@ -71,10 +71,10 @@ ids = s.pipeline([
     {"text": "PROPOSAL\n+ context", "kind": "terminator", "fill": "data", "label": "propose"},
     {"text": "Generator", "kind": "process", "fill": "voice", "label": "blind to risk"},
     {"text": "Conservator", "kind": "process", "fill": "voice", "label": "scores risk"},
-    {"text": "Control", "kind": "process", "fill": "voice", "label": "audit + dissent"},
+    {"text": "Control", "kind": "process", "fill": "voice", "label": "audits"},
     {"text": "aggregate", "kind": "decision", "fill": "aggregation", "label": "verdict"},
     {"text": "Report", "kind": "terminator", "fill": "data"},
-], 80, y, gap=108, font_size=13)
+], 80, y, gap=150, font_size=13)
 s.label("Each voice = 1 model call via voices.call_voice(); aggregator gates on "
         "glossary_fail / irreversibility -> BLOCK.", 80 + 360, y + 112, size=12, align="center")
 
@@ -94,13 +94,13 @@ s.label("StateGraph orchestration", 960, y + 80, size=12)
 # ── 4 · INTEGRATION ───────────────────────────────────────────────────────────
 y = s.section("4 - INTEGRATION   invoked, external systems, persisted state")
 cli = s.box("consilium CLI\ndeliberate/check/index", 80, y, w=190, h=70, fill="interface", font_size=12)
-gitd = s.box("git diff", 80, y + 100, w=190, h=64, fill="external", font_size=13)
-api = s.box("deliberate()\nPython API", 80, y + 200, w=190, h=64, fill="interface", font_size=12)
-eng = s.box("deliberate()\ndispatch + modes", 360, y + 90, w=180, h=90, fill="engine", font_size=13)
-anth = s.box("Anthropic API", 640, y, w=180, h=70, fill="external", font_size=13)
-ltl = s.box("LiteLLM\nprovider/model", 640, y + 100, w=180, h=70, fill="external", font_size=12)
-chroma = s.box("ChromaDB", 640, y + 210, w=180, h=64, fill="external", font_size=13)
-state = s.box("~/.consilium/\nruns + chroma", 900, y + 207, w=180, h=70, fill="data", font_size=12)
+gitd = s.box("git diff", 80, y + 130, w=190, h=64, fill="external", font_size=13)
+api = s.box("deliberate()\nPython API", 80, y + 260, w=190, h=64, fill="interface", font_size=12)
+eng = s.box("deliberate()\ndispatch + modes", 360, y + 120, w=180, h=90, fill="engine", font_size=13)
+anth = s.box("Anthropic API", 720, y, w=180, h=70, fill="external", font_size=13)
+ltl = s.box("LiteLLM\nprovider/model", 720, y + 100, w=180, h=70, fill="external", font_size=12)
+chroma = s.box("ChromaDB", 720, y + 210, w=180, h=64, fill="external", font_size=13)
+state = s.box("~/.consilium/\nruns + chroma", 1000, y + 207, w=180, h=70, fill="data", font_size=12)
 
 s.arrow(gitd, cli, label="check")
 s.arrow(cli, eng, label="invoke")
@@ -127,12 +127,12 @@ s.arrow(rep, v4)
 y = s.section("6 - DISTRIBUTION   how it ships")
 pypi = s.box("PyPI\nconsilium-py", 80, y, w=170, h=70, fill="distribution", font_size=13)
 pipi = s.box("pip install", 330, y, w=150, h=70, fill="distribution", font_size=13)
-entry = s.box("consilium\nconsole script", 560, y, w=170, h=70, fill="interface", font_size=12)
-extras = s.box("extras:\n[rag][langgraph]\n[litellm][server]", 560, y + 120, w=190, h=80, fill="distribution", font_size=12)
+entry = s.box("consilium\nconsole script", 620, y, w=170, h=70, fill="interface", font_size=12)
+extras = s.box("extras:\n[rag] [langgraph]\n[litellm]", 620, y + 120, w=190, h=80, fill="distribution", font_size=12)
 s.arrow(pypi, pipi)
 s.arrow(pipi, entry, label="entry point")
 s.arrow(pipi, extras, label="optional deps")
-s.label("[server] extra is declared in pyproject; server.py is not yet in the tree.",
+s.label("Each extra pulls its own deps only when installed; the core install is anthropic + click + pydantic.",
         300, y + 215, size=11, align="center")
 
 # ── legend + glossary ─────────────────────────────────────────────────────────
