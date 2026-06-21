@@ -36,7 +36,8 @@ def deliberate_cmd(
     """Deliberate a proposed change."""
     ctx_text = ""
     for path in context:
-        ctx_text += f"\n\n--- {path} ---\n" + open(path).read()
+        with open(path, encoding="utf-8") as f:
+            ctx_text += f"\n\n--- {path} ---\n" + f.read()
 
     report = deliberate(
         proposal,

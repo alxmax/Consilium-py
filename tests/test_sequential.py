@@ -53,6 +53,12 @@ CTRL_DISSENT = json.dumps({
     "no_blocking_defect_attested": False,
 })
 
+CTRL_SUBSTANTIAL = json.dumps({
+    "glossary_fail": False,
+    "glossary": ["endpoint"],
+    "disagreements": [{"type": "substantial", "summary": "Voices disagree on rollout"}],
+})
+
 
 class TestRunSequential(unittest.TestCase):
     def _run(self, cons: str, gen: str, ctrl: str, proposal: str = "Add health check"):
@@ -97,6 +103,13 @@ class TestRunSequential(unittest.TestCase):
         ctrl_voice = next(v for v in report.voices if v.voice == "control")
         self.assertEqual(ctrl_voice.vote, "MODIFY")
         self.assertTrue(any("strongest_objection: approach_a" in c for c in ctrl_voice.concerns))
+
+    def test_rework_carries_categorical_confidence(self):
+        """Substantial disagreement → REWORK is a bypass verdict (CPYBUS-AGG-001):
+        surfaces as MODIFY with categorical confidence 0.1, not the adaptive 0.5."""
+        report = self._run(CONS_GO, GEN_GO, CTRL_SUBSTANTIAL)
+        self.assertEqual(report.verdict, "MODIFY")
+        self.assertEqual(report.confidence, 0.1)
 
     def test_sample_fixture_validates(self):
         data = json.loads((FIXTURE_DIR / "sample_report.json").read_text())
