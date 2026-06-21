@@ -87,6 +87,9 @@ class TestRunDialectic(unittest.TestCase):
     def test_override_in_place_downgrades_to_modify(self):
         report = self._run(SKEPTIC_IN_PLACE, skeptic_can_override=True)
         self.assertEqual(report.verdict, "MODIFY")
+        # The in_place recommendation must carry the Skeptic's notes, like the
+        # unaddressable / requires_redesign branches do.
+        self.assertIn("Fixable with a guard clause.", report.recommendation)
 
     def test_override_unaddressable_blocks(self):
         report = self._run(SKEPTIC_UNADDRESSABLE, skeptic_can_override=True)

@@ -54,6 +54,25 @@ class TestDeliberateCmd(unittest.TestCase):
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertIn("extra context content", captured.get("context", ""))
 
+    def test_context_file_utf8_non_ascii(self):
+        """--context reads UTF-8 files; non-ASCII content must not be mangled
+        by the platform's default encoding (Windows: cp1252)."""
+        from consilium.cli import main
+        runner = CliRunner()
+        captured = {}
+
+        def capture(proposal, **kwargs):
+            captured.update(kwargs)
+            return _go_report()
+
+        with runner.isolated_filesystem():
+            with open("ctx.txt", "w", encoding="utf-8") as f:
+                f.write("café résumé — naïve façade")
+            with patch("consilium.cli.deliberate", side_effect=capture):
+                result = runner.invoke(main, ["deliberate", "test", "-c", "ctx.txt"])
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("café résumé — naïve façade", captured.get("context", ""))
+
 
 class TestCheckCmd(unittest.TestCase):
     def test_empty_diff_errors(self):

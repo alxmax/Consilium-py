@@ -247,7 +247,10 @@ def aggregate_sequential(
         recommendation = agg.get("methodology_notes", "Deliberation complete")
     else:
         verdict = _RESULT_TO_VERDICT.get(scheme_result, "MODIFY")
-        confidence = 0.1 if verdict in ("BLOCK", "ESCALATE") else 0.5
+        # Bypass verdicts (BLOCK, REWORK, ESCALATE) carry a categorical low
+        # confidence (CPYBUS-AGG-001). Test scheme_result, not verdict, because
+        # REWORK is mapped to MODIFY above and would otherwise leak 0.5.
+        confidence = 0.1 if scheme_result in ("BLOCK", "REWORK", "ESCALATE") else 0.5
         recommendation = agg.get("action", f"Result: {scheme_result}")
 
     voices = [

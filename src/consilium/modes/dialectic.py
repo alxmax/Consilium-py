@@ -29,7 +29,7 @@ def run_dialectic(
             recommendation = f"Skeptic requires redesign ({sk.failure_mode}): {sk.notes}"
         elif sk.addressable == "in_place" and verdict == "GO":
             verdict = "MODIFY"
-            recommendation = f"Skeptic: in-place fix needed ({sk.failure_mode})"
+            recommendation = f"Skeptic: in-place fix needed ({sk.failure_mode}): {sk.notes}"
 
     return Report(
         verdict=verdict,

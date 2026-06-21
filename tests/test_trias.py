@@ -120,6 +120,13 @@ class TestRunTrias(unittest.TestCase):
         assert r.skeptic is not None
         self.assertTrue(r.skeptic.can_object)
 
+    def test_skeptic_override_in_place_downgrades_with_notes(self):
+        r = self._unanimous(skeptic_text=SKEPTIC_IN_PLACE, skeptic_can_override=True)
+        self.assertEqual(r.verdict, "MODIFY")
+        self.assertEqual(r.chosen, "a")
+        # in_place recommendation must carry the Skeptic's notes.
+        self.assertIn("Fixable with a guard clause.", r.recommendation)
+
     def test_skeptic_override_unaddressable_blocks(self):
         r = self._unanimous(skeptic_text=SKEPTIC_UNADDRESSABLE, skeptic_can_override=True)
         self.assertEqual(r.verdict, "BLOCK")

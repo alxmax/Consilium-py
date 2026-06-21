@@ -182,7 +182,7 @@ def run_trias(inp: DeliberationInput, skeptic_can_override: bool = False) -> Rep
                 recommendation = f"Skeptic requires redesign ({sk.failure_mode}): {sk.notes}"
             elif sk.addressable == "in_place" and verdict == "GO":
                 verdict = "MODIFY"
-                recommendation = f"Skeptic: in-place fix needed ({sk.failure_mode}). {recommendation}"
+                recommendation = f"Skeptic: in-place fix needed ({sk.failure_mode}): {sk.notes}. {recommendation}"
         elif sk.can_object:
             recommendation = f"{recommendation} | Skeptic (advisory): {sk.notes}"
 
