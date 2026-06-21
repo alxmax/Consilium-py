@@ -10,13 +10,14 @@ from consilium.modes.trias import run_trias
 from consilium.models import DeliberationInput, Report
 
 _SUPPORTED_MODES = ("sequential", "dialectic", "trias", "langgraph")
+_DEFAULT_MODEL = "openrouter/google/gemini-2.0-flash-001"
 
 
 def deliberate(
     proposal: str,
     context: str = "",
     mode: str = "sequential",
-    model: str = "claude-sonnet-4-6",
+    model: str = _DEFAULT_MODEL,
     skeptic_can_override: bool = False,
     rag: bool = False,
 ) -> Report:

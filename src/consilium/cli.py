@@ -20,7 +20,7 @@ def main() -> None:
 @click.argument("proposal")
 @click.option("--context", "-c", multiple=True, help="Context files (path)")
 @click.option("--mode", default="sequential", type=click.Choice(["sequential", "dialectic", "trias", "langgraph"]))
-@click.option("--model", default="claude-sonnet-4-6", envvar="CONSILIUM_MODEL", help="Model string. Use 'provider/model' for LiteLLM (e.g. openai/gpt-4o).")
+@click.option("--model", default="openrouter/google/gemini-2.0-flash-001", envvar="CONSILIUM_MODEL", help="Model string. Use 'provider/model' for LiteLLM (e.g. openrouter/google/gemini-2.0-flash-001).")
 @click.option("--skeptic-can-override", is_flag=True, default=False, help="Allow Skeptic to downgrade verdict (dialectic only)")
 @click.option("--rag", is_flag=True, default=False, help="Inject similar past runs as context (requires consilium-py[rag])")
 @click.option("--output", type=click.Choice(["text", "json"]), default="text")
@@ -64,7 +64,7 @@ def index_cmd() -> None:
 @main.command("check")
 @click.option("--diff", default=None, help="Git ref for diff (e.g. HEAD~1, main). Omit for staged changes.")
 @click.option("--mode", default="sequential", type=click.Choice(["sequential", "dialectic", "trias", "langgraph"]))
-@click.option("--model", default="claude-sonnet-4-6", envvar="CONSILIUM_MODEL", help="Model string. Use 'provider/model' for LiteLLM (e.g. openai/gpt-4o).")
+@click.option("--model", default="openrouter/google/gemini-2.0-flash-001", envvar="CONSILIUM_MODEL", help="Model string. Use 'provider/model' for LiteLLM (e.g. openrouter/google/gemini-2.0-flash-001).")
 @click.option("--skeptic-can-override", is_flag=True, default=False)
 @click.option("--output", type=click.Choice(["text", "json"]), default="text")
 def check_cmd(

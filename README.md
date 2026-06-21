@@ -29,7 +29,7 @@ links to the requirement map and the architecture diagram — or the full archit
 
 ```bash
 pip install consilium-py
-export ANTHROPIC_API_KEY=sk-ant-...
+export OPENROUTER_API_KEY=sk-or-...
 ```
 
 ### Optional extras
@@ -38,7 +38,6 @@ export ANTHROPIC_API_KEY=sk-ant-...
 |---|---|---|
 | `[rag]` | ChromaDB context injection — retrieves similar past decisions | `pip install 'consilium-py[rag]'` |
 | `[langgraph]` | LangGraph orchestration mode replacing the sequential pipeline | `pip install 'consilium-py[langgraph]'` |
-| `[litellm]` | Provider-agnostic voices — use any model via `provider/model` | `pip install 'consilium-py[litellm]'` |
 
 ## Deliberation modes
 
@@ -66,7 +65,8 @@ consilium deliberate "Add health check endpoint" --mode trias --output json
 # Review the current git diff
 consilium check
 
-# Use a specific model (or set CONSILIUM_MODEL env var)
+# Use a different model (or set CONSILIUM_MODEL env var)
+consilium deliberate "Add caching" --model gemini/gemini-2.5-pro
 consilium deliberate "Add caching" --model openai/gpt-4o
 ```
 
@@ -86,7 +86,7 @@ report = deliberate(
     "Refactor auth module",
     context=open("src/auth.py").read(),
     mode="dialectic",
-    model="claude-sonnet-4-6",
+    model="gemini/gemini-2.0-flash",
 )
 
 # RAG: inject similar past decisions as context (requires [rag] extra)
@@ -113,11 +113,47 @@ export CONSILIUM_MODEL=openai/gpt-4o
 consilium deliberate "Add caching"
 ```
 
+### Using OpenRouter (default)
+
+OpenRouter gives access to Gemini, Claude, GPT, and hundreds of other models through a
+single API key. This is the default provider.
+
+```bash
+export OPENROUTER_API_KEY=sk-or-...
+```
+
+```bash
+# CLI — default model is openrouter/google/gemini-2.0-flash-001
+consilium deliberate "Add caching"
+consilium deliberate "Refactor auth" --model openrouter/google/gemini-2.5-pro
+consilium deliberate "Add caching" --model openrouter/anthropic/claude-sonnet-4-5
+
+# Or set once and forget
+export CONSILIUM_MODEL=openrouter/google/gemini-2.5-flash
+consilium deliberate "Add caching"
+consilium check
+```
+
+```python
+# Python API
+from consilium import deliberate
+
+report = deliberate("Add caching", model="openrouter/google/gemini-2.0-flash-001")
+print(report.verdict)
+print(report.recommendation)
+```
+
+> **Model strings:** use the `openrouter/` prefix followed by the exact model ID from the  
+> [OpenRouter model list](https://openrouter.ai/models) — e.g. `openrouter/google/gemini-2.5-pro`.
+> A `404 No endpoints found` means the model isn't available on your account (add credits or
+> try a `:free` variant like `openrouter/google/gemini-2.0-flash-exp:free`).
+
 ## Requirements
 
 - Python 3.11+
-- `ANTHROPIC_API_KEY` — required for Anthropic models (default)
-- Provider-specific env vars when using LiteLLM (`OPENAI_API_KEY`, etc.)
+- `OPENROUTER_API_KEY` — required for the default OpenRouter models
+- `ANTHROPIC_API_KEY` — required when using bare Anthropic/Claude model names (e.g. `claude-sonnet-4-6`)
+- Provider-specific env vars for other providers via LiteLLM (`OPENAI_API_KEY`, `GEMINI_API_KEY`, etc.)
 
 ## Related
 
