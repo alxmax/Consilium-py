@@ -1,7 +1,6 @@
-"""Unit tests for sequential mode — voices mocked, no API calls.
+"""Unit tests for sequential mode — voices mocked, no API calls."""
 # tested-by: CPYMOD-SEQ-001
 # tested-by: CPYBUS-AGG-001
-"""
 import json
 import unittest
 from pathlib import Path
@@ -46,13 +45,22 @@ CONS_IRREV = json.dumps({
     ]
 })
 
+CTRL_DISSENT = json.dumps({
+    "glossary_fail": False,
+    "glossary": ["endpoint"],
+    "disagreements": [],
+    "strongest_objection": "approach_a",
+    "no_blocking_defect_attested": False,
+})
+
 
 class TestRunSequential(unittest.TestCase):
     def _run(self, cons: str, gen: str, ctrl: str, proposal: str = "Add health check"):
         from consilium.modes.sequential import run_sequential
         from consilium.models import DeliberationInput
 
-        outputs = iter([cons, gen, ctrl])
+        # Generator-first execution order: generator, conservator, control
+        outputs = iter([gen, cons, ctrl])
         with patch("consilium.modes.sequential.call_voice", side_effect=lambda *_a, **_kw: next(outputs)):
             return run_sequential(DeliberationInput(proposal=proposal))
 
@@ -82,6 +90,13 @@ class TestRunSequential(unittest.TestCase):
         report = self._run(CONS_IRREV, GEN_GO, CTRL_GO)
         cons_voice = next(v for v in report.voices if v.voice == "conservator")
         self.assertEqual(cons_voice.vote, "STOP")
+
+    def test_mandatory_dissent_surfaced_in_control_voice(self):
+        """A non-null strongest_objection is surfaced and flips the control vote to MODIFY."""
+        report = self._run(CONS_GO, GEN_GO, CTRL_DISSENT)
+        ctrl_voice = next(v for v in report.voices if v.voice == "control")
+        self.assertEqual(ctrl_voice.vote, "MODIFY")
+        self.assertTrue(any("strongest_objection: approach_a" in c for c in ctrl_voice.concerns))
 
     def test_sample_fixture_validates(self):
         data = json.loads((FIXTURE_DIR / "sample_report.json").read_text())

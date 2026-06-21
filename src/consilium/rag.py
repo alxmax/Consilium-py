@@ -1,6 +1,5 @@
-"""RAG context injection from past deliberation runs.
+"""RAG context injection from past deliberation runs."""
 # implements: CPYEXT-RAG-001
-"""
 from __future__ import annotations
 
 import json

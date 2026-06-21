@@ -9,12 +9,15 @@ def run_sequential(inp: DeliberationInput) -> Report:
     if inp.context:
         proposal_msg += f"\n\nCONTEXT:\n{inp.context}"
 
-    cons_out = call_voice("conservator", load_prompt("conservator"), proposal_msg, inp.model)
+    # Generator runs FIRST — blind to risk framing (anti-anchoring).
+    gen_out = call_voice("generator", load_prompt("generator"), proposal_msg, inp.model)
 
-    gen_msg = f"{proposal_msg}\n\n--- CONSERVATOR OUTPUT ---\n{cons_out}"
-    gen_out = call_voice("generator", load_prompt("generator"), gen_msg, inp.model)
+    # Conservator runs second — scores the risk of Generator's candidates.
+    cons_msg = f"{proposal_msg}\n\n--- GENERATOR OUTPUT ---\n{gen_out}"
+    cons_out = call_voice("conservator", load_prompt("conservator"), cons_msg, inp.model)
 
-    ctrl_msg = f"{gen_msg}\n\n--- GENERATOR OUTPUT ---\n{gen_out}"
+    # Control runs third — sees both candidates and risk.
+    ctrl_msg = f"{cons_msg}\n\n--- CONSERVATOR OUTPUT ---\n{cons_out}"
     ctrl_out = call_voice("control", load_prompt("control"), ctrl_msg, inp.model)
 
     return aggregate_sequential(cons_out, gen_out, ctrl_out, inp)

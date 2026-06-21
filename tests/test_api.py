@@ -1,7 +1,6 @@
-"""Unit tests for the public deliberate() API.
+"""Unit tests for the public deliberate() API."""
 # tested-by: CPYBUS-API-001
 # tested-by: CPYEXT-LTL-001
-"""
 import os
 import sys
 import unittest

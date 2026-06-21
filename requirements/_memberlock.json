@@ -1,0 +1,26 @@
+{
+  "_schema": 1,
+  "members": {
+    "CPYBUS-AGG-001": {
+      "src/consilium/aggregator.py": "f547c7db2f14ea62d432b680f3eacfefa6cb4da92c9ffffaa7ea102e1c4cd89f"
+    },
+    "CPYBUS-SKEPTIC-001": {
+      "src/consilium/skeptic.py": "05d89add1179a434abb0bc50b8d502e9ad192d40ddf079b6f5c5407d8485725c"
+    },
+    "CPYEXT-LG-001": {
+      "src/consilium/modes/langgraph_mode.py": "ba8c03dbdaf27ade50e41f86f5e8b18b2eaa65467de3331a4f5c6a1c1273984d"
+    },
+    "CPYEXT-RAG-001": {
+      "src/consilium/rag.py": "87ca671dceb6a59fb48802611ceee5b2a35ca55d9267394cf0451e3cf5a573f8"
+    },
+    "CPYMOD-DIA-001": {
+      "src/consilium/modes/dialectic.py": "f32684cb2acf63cb72d2e78ede22d7ea0732fc4c8e8ef5fba1444b70a5d1402a"
+    },
+    "CPYMOD-SEQ-001": {
+      "src/consilium/modes/sequential.py": "29609de6a3f580913c01f212fe1b2c935f2615ad2d4b9902eabe5106c84f8b1e"
+    },
+    "CPYMOD-TRI-001": {
+      "src/consilium/modes/trias.py": "dab094bcf2b1e706ae9a9f4193332475fb9312d0eead77bc4010af843fb34dc0"
+    }
+  }
+}

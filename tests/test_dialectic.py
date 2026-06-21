@@ -1,6 +1,5 @@
-"""Unit tests for dialectic mode — voices mocked, no API calls.
+"""Unit tests for dialectic mode — voices mocked, no API calls."""
 # tested-by: CPYMOD-DIA-001
-"""
 import json
 import unittest
 from unittest.mock import patch
@@ -48,13 +47,14 @@ class TestRunDialectic(unittest.TestCase):
         from consilium.models import DeliberationInput
         from consilium.modes.dialectic import run_dialectic
 
-        seq_outputs = iter([CONS_GO, GEN_GO, CTRL_GO])
+        # Generator-first execution order: generator, conservator, control
+        seq_outputs = iter([GEN_GO, CONS_GO, CTRL_GO])
 
         def mock_seq(*_a, **_kw):
             return next(seq_outputs)
 
         with patch("consilium.modes.sequential.call_voice", side_effect=mock_seq), \
-             patch("consilium.modes.dialectic.call_voice", return_value=skeptic_text):
+             patch("consilium.skeptic.call_voice", return_value=skeptic_text):
             return run_dialectic(
                 DeliberationInput(proposal="Add health check endpoint"),
                 skeptic_can_override=skeptic_can_override,

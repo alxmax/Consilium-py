@@ -1,10 +1,9 @@
 """Sequential aggregation: raw voice text → Report.
-# implements: CPYBUS-AGG-001
-
 
 The _run_sequential_scheme() function is adapted from
 Consilium skill scripts/aggregator.py (aggregate_sequential).
 """
+# implements: CPYBUS-AGG-001
 from __future__ import annotations
 
 import statistics
@@ -200,6 +199,13 @@ def _extract_voice_output(name: str, voice_out: dict, raw_text: str) -> VoiceOut
             for d in voice_out.get("disagreements", [])
             if isinstance(d, dict)
         ]
+        # Mandatory dissent (Q5): surface a non-null strongest_objection so the
+        # held-back reservation is visible even when the candidate is valid.
+        objection = voice_out.get("strongest_objection")
+        if objection:
+            concerns.append(f"strongest_objection: {objection}")
+            if vote == "GO":
+                vote = "MODIFY"
 
     return VoiceOutput(
         voice=name,

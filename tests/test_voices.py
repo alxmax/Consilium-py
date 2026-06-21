@@ -1,7 +1,6 @@
-"""Unit tests for voice dispatch utilities — no API calls.
+"""Unit tests for voice dispatch utilities — no API calls."""
 # tested-by: CPYBUS-VOI-001
 # tested-by: CPYEXT-LTL-001
-"""
 import sys
 import unittest
 from unittest.mock import MagicMock, patch
