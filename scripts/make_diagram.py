@@ -112,16 +112,20 @@ s.arrow(chroma, state, label="save_run")
 
 # ── 5 · DATA ──────────────────────────────────────────────────────────────────
 y = s.section("5 - DATA   the Report record (models.py)")
-rep = s.box("Report\nverdict\nconfidence\nrecommendation\nvoices[]\nchosen . mode . skeptic",
-            420, y, w=210, h=176, fill="data", font_size=13)
+rep = s.box("Report\nverdict\nconfidence\nrecommendation\nvoices[]\nchosen + chosen_*\nreason\nmode . skeptic",
+            420, y, w=210, h=224, fill="data", font_size=13)
 v1 = s.box("verdict in\nGO.MODIFY.STOP\nBLOCK.ESCALATE", 90, y, w=250, h=80, fill="aggregation", font_size=12)
 v2 = s.box("confidence 0.0-1.0\ninter-voice agreement", 90, y + 100, w=250, h=70, fill="aggregation", font_size=12)
+v5 = s.box("reason: bypass cause\nnot_a_proposal . glossary_fail", 90, y + 190, w=250, h=70, fill="aggregation", font_size=12)
 v3 = s.box("voices[]: VoiceOutput\nvote . score . concerns", 710, y, w=250, h=80, fill="voice", font_size=12)
 v4 = s.box("skeptic: SkepticObjection\nfailure_mode . addressable", 710, y + 100, w=250, h=70, fill="voice", font_size=12)
+v6 = s.box("chosen_*: how to implement\nsummary . sketch . rationale", 710, y + 190, w=250, h=70, fill="data", font_size=12)
 s.arrow(rep, v1)
 s.arrow(rep, v2)
+s.arrow(rep, v5)
 s.arrow(rep, v3)
 s.arrow(rep, v4)
+s.arrow(rep, v6)
 
 # ── 6 · DISTRIBUTION ──────────────────────────────────────────────────────────
 y = s.section("6 - DISTRIBUTION   how it ships")

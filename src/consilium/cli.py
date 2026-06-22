@@ -4,11 +4,17 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 
 import click
 
 from consilium import deliberate
 from consilium.models import Report
+
+
+def _stdin_is_tty() -> bool:
+    """Interactivity guard (patchable in tests; CliRunner swaps sys.stdin)."""
+    return sys.stdin.isatty()
 
 
 @click.group()
@@ -47,6 +53,36 @@ def deliberate_cmd(
         skeptic_can_override=skeptic_can_override,
         rag=rag,
     )
+
+    # Bounded clarify: a non-proposal dead-ends at BLOCK. In an interactive
+    # text session, ask ONCE for a concrete rephrase and deliberate that, so the
+    # auditor stays an auditor (the user — not an LLM — supplies the proposal).
+    # Non-interactive / JSON callers keep the BLOCK sentinel unchanged.
+    if (
+        report.reason == "not_a_proposal"
+        and output == "text"
+        and _stdin_is_tty()
+    ):
+        _print_report(report, output)
+        rephrased = click.prompt(
+            "\nThis looks like a question, not a change to deliberate.\n"
+            "Rephrase it as a concrete proposal (or press Enter to skip)",
+            default="",
+            show_default=False,
+        ).strip()
+        if rephrased:
+            click.echo(f"\nDeliberating: {rephrased}")
+            report = deliberate(
+                rephrased,
+                context=ctx_text,
+                mode=mode,
+                model=model,
+                skeptic_can_override=skeptic_can_override,
+                rag=rag,
+            )
+            _print_report(report, output)
+        return
+
     _print_report(report, output)
 
 
@@ -107,6 +143,15 @@ def _print_report(report: Report, output: str) -> None:
         click.echo(f"Confidence: {report.confidence:.2f}")
         click.echo(f"Mode:       {report.mode}")
         click.echo(f"\n{report.recommendation}")
+        # "How to implement" — only for actionable verdicts; a STOP/BLOCK
+        # carries no chosen approach worth sketching.
+        if report.verdict in ("GO", "MODIFY") and report.chosen_sketch:
+            click.echo(f"\nHow to implement ({report.chosen}):")
+            if report.chosen_summary:
+                click.echo(f"  {report.chosen_summary}")
+            click.echo(f"  {report.chosen_sketch}")
+            if report.chosen_rationale:
+                click.echo(f"  Why: {report.chosen_rationale}")
         if report.skeptic and report.skeptic.can_object:
             click.echo(f"\nSkeptic ({report.skeptic.addressable}): {report.skeptic.failure_mode}")
             for c in report.skeptic.concrete_concerns:

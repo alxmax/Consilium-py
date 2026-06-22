@@ -31,6 +31,16 @@ class Report(BaseModel):
     recommendation: str
     voices: list[VoiceOutput]
     chosen: str | None = None
+    # "How to implement" — the chosen candidate's detail, surfaced from the
+    # Generator so a GO/MODIFY verdict carries actionable guidance, not just a
+    # verdict line. Populated only when a candidate is chosen.
+    chosen_summary: str | None = None
+    chosen_sketch: str | None = None
+    chosen_rationale: str | None = None
+    # Machine-readable bypass reason (e.g. "not_a_proposal", "glossary_fail").
+    # None on a normal aggregated verdict. Lets callers branch without parsing
+    # the human-facing recommendation text.
+    reason: str | None = None
     pipeline_executed: bool = True
     mode: str = "sequential"
     skeptic: SkepticObjection | None = None

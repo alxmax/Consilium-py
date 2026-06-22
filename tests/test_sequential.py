@@ -29,6 +29,20 @@ GEN_GO = json.dumps({
     "abstain": {"triggered": False},
 })
 
+GEN_GO_WITH_SKETCH = json.dumps({
+    "preferred": "approach_a",
+    "candidates": [
+        {
+            "id": "approach_a",
+            "summary": "Add a /health endpoint",
+            "sketch": "Add a GET /health route returning 200 + version JSON.",
+            "rationale": "Smallest change that satisfies the readiness goal.",
+        },
+        {"id": "approach_b", "summary": "Alt", "sketch": "Do nothing."},
+    ],
+    "abstain": {"triggered": False},
+})
+
 CTRL_GO = json.dumps({
     "glossary_fail": False,
     "glossary": ["health check", "endpoint"],
@@ -129,6 +143,25 @@ class TestRunSequential(unittest.TestCase):
         self.assertEqual(report.confidence, 0.1)
         self.assertNotIn(report.verdict, ("GO", "MODIFY"))
         self.assertIn("not a deliberation input", report.recommendation.lower())
+
+    def test_not_a_proposal_sets_machine_reason(self):
+        """Part 1: the bypass reason is exposed for callers (CLI clarify branch)."""
+        report = self._run(CONS_GO, GEN_NOT_PROPOSAL, CTRL_GO)
+        self.assertEqual(report.reason, "not_a_proposal")
+
+    def test_chosen_sketch_surfaced(self):
+        """Part 2: the chosen candidate's how-to-implement detail reaches the Report."""
+        report = self._run(CONS_GO, GEN_GO_WITH_SKETCH, CTRL_GO)
+        self.assertEqual(report.verdict, "GO")
+        self.assertEqual(report.chosen, "approach_a")
+        self.assertEqual(report.chosen_summary, "Add a /health endpoint")
+        self.assertIn("GET /health", report.chosen_sketch or "")
+        self.assertIn("readiness goal", report.chosen_rationale or "")
+
+    def test_chosen_sketch_absent_on_block(self):
+        """A non-proposal BLOCK carries no chosen approach to sketch."""
+        report = self._run(CONS_GO, GEN_NOT_PROPOSAL, CTRL_GO)
+        self.assertIsNone(report.chosen_sketch)
 
     def test_malformed_generator_does_not_block(self):
         """AC2: unparseable Generator output falls through, never a silent short-circuit."""
