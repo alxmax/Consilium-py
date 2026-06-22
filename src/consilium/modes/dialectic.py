@@ -10,6 +10,11 @@ def run_dialectic(
 ) -> Report:
     report = run_sequential(inp)
 
+    # A categorical BLOCK (e.g. not_a_proposal, irreversibility, glossary_fail)
+    # leaves nothing for the Skeptic to challenge — propagate it unchanged.
+    if report.verdict == "BLOCK":
+        return report.model_copy(update={"mode": "dialectic"})
+
     # Skeptic sees only the chosen, not the full deliberation.
     chosen_id = report.chosen or "the proposed approach"
     sk, skeptic_voice = skeptic_challenge(chosen_id, inp)
