@@ -155,3 +155,14 @@ No gaps.
 **Placeholder scan:** No TBD/TODO/"handle edge cases"; the exact prompt text and commands are inline. ✓
 
 **Type consistency:** The only identifiers are the abstain reason strings `not_a_proposal` and `no_data`, used consistently across both tasks and matching the existing `generator.md` / `aggregator.py` spelling. ✓
+
+---
+
+## Revision 2026-06-22 — Task 3 added (answer, don't BLOCK)
+
+Scope grew after Task 1: greeting / chit-chat / empty input should be **answered
+directly**, not BLOCKed. Added Task 3 (code, not prompt) — `ANSWER` verdict,
+`voices.plain_answer`, `deliberate()` conversion, CLI `ANSWER` print, and removal
+of the superseded PR-#16 clarify branch. Full design + rationale in the spec's
+"Revision 2026-06-22" section. Verified: `pytest` 81 passed, `reqmap gate` 0/0,
+no new pyright errors.

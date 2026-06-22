@@ -26,7 +26,9 @@ class SkepticObjection(BaseModel):
 
 
 class Report(BaseModel):
-    verdict: Literal["GO", "MODIFY", "STOP", "BLOCK", "ESCALATE"]
+    # ANSWER = a non-deliberation input (greeting/chit-chat) answered directly,
+    # not run through the veto cascade. Carries the reply in `recommendation`.
+    verdict: Literal["GO", "MODIFY", "STOP", "BLOCK", "ESCALATE", "ANSWER"]
     confidence: float
     recommendation: str
     voices: list[VoiceOutput]

@@ -106,3 +106,25 @@ Prompt behavior is not unit-testable here (tests mock `call_voice`), so:
   contradict the "human supplies the proposal" principle).
 - No change to the `consilium` plugin skill's copy of `generator.md` (separate
   codebase; this spec is for `consilium-py`).
+
+## Revision 2026-06-22 — non-deliberation input answered, not BLOCKed
+
+After the prompt-only change landed, the requirement changed: **kind 4**
+(greeting / chit-chat / empty) should no longer produce a `BLOCK` — it should be
+**answered directly**. The Generator still flags these `not_a_proposal`; the
+change is downstream:
+
+- `models.py` — new `verdict` value `ANSWER`.
+- `voices.py` — `plain_answer(user_msg, model)`: one conversational `call_voice`
+  call with a plain assistant system prompt (honors Anthropic-vs-LiteLLM routing).
+- `__init__.py` — `deliberate()` converts a `reason == "not_a_proposal"` report
+  into an `ANSWER` report (one `plain_answer` call), for every mode; not RAG-persisted.
+- `cli.py` — `_print_report` prints only the reply for `verdict == "ANSWER"`.
+
+**This supersedes the PR-#16 clarify-on-non-proposal feature** (the "rephrase as a
+proposal" prompt). That branch and its tests were removed — a non-proposal is now
+either reframed-and-deliberated (kind 2), a low-confidence `no_data` deliberation
+(kind 3), or answered directly (kind 4); there is no "ask the human to rephrase"
+path. Requirements updated: `CPYBUS-CLI-001` (drop clarify, add `ANSWER` output)
+and `CPYBUS-API-001` (the conversion). `CPYBUS-AGG-001` is unchanged — it still
+emits the `not_a_proposal` BLOCK that `deliberate()` then converts.

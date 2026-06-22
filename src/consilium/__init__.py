@@ -8,6 +8,7 @@ from consilium.modes.dialectic import run_dialectic
 from consilium.modes.sequential import run_sequential
 from consilium.modes.trias import run_trias
 from consilium.models import DeliberationInput, Report
+from consilium.voices import plain_answer
 
 _SUPPORTED_MODES = ("sequential", "dialectic", "trias", "langgraph")
 _DEFAULT_MODEL = "openrouter/google/gemini-2.0-flash-001"
@@ -42,6 +43,22 @@ def deliberate(
         report = run_langgraph(inp)
     else:
         raise ValueError(f"Unknown mode: {mode!r}. Supported: {', '.join(_SUPPORTED_MODES)}")
+
+    # A non-deliberation input (greeting / chit-chat / empty) is not BLOCKed — it
+    # is answered directly. The Generator flags these `not_a_proposal`; here we
+    # replace that BLOCK sentinel with a plain ANSWER so every mode behaves the
+    # same. (Problems and decision-questions are reframed into candidates by the
+    # Generator and never reach here; dataless predictions stay a low-confidence
+    # `no_data` deliberation.) Not persisted to RAG — it is not a deliberation.
+    if report.reason == "not_a_proposal":
+        return Report(
+            verdict="ANSWER",
+            confidence=0.0,
+            recommendation=plain_answer(proposal, model),
+            voices=[],
+            reason="not_a_proposal",
+            mode=mode,
+        )
 
     # RAG: persist + index the run after deliberation.
     if rag:

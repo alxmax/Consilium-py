@@ -88,3 +88,16 @@ def call_voice(_voice_name: str, system_prompt: str, user_msg: str, model: str) 
         if block.type == "text":
             return block.text
     return ""
+
+
+_PLAIN_ANSWER_SYSTEM = (
+    "You are a helpful assistant. The user's message is not a code change or "
+    "decision to deliberate — just answer it directly and concisely."
+)
+
+
+def plain_answer(user_msg: str, model: str) -> str:
+    """Single conversational reply for input that is not a deliberation
+    (greeting / chit-chat / empty). Routes through `call_voice`, so it honors the
+    same Anthropic-vs-LiteLLM dispatch as the deliberating voices."""
+    return call_voice("assistant", _PLAIN_ANSWER_SYSTEM, user_msg, model)
