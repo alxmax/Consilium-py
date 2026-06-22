@@ -11,6 +11,36 @@ from consilium import deliberate
 from consilium.models import Report
 
 
+def _is_provider_error(e: BaseException) -> bool:
+    """True for a transient LLM-provider failure (litellm/openai/anthropic) — a
+    503, rate limit, timeout — as opposed to a real bug, which we must not mask."""
+    root = (type(e).__module__ or "").split(".")[0]
+    if root in ("litellm", "openai"):
+        return True
+    try:
+        import anthropic  # noqa: PLC0415
+    except ImportError:
+        return False
+    return isinstance(e, anthropic.APIError)
+
+
+def _deliberate_or_exit(proposal: str, **kwargs) -> Report:
+    """Call `deliberate()`, turning a provider outage into a clean CLI message
+    instead of a raw traceback. Non-provider exceptions propagate unchanged."""
+    try:
+        return deliberate(proposal, **kwargs)
+    except Exception as e:  # noqa: BLE001
+        if not _is_provider_error(e):
+            raise
+        status = getattr(e, "status_code", None)
+        detail = f" (HTTP {status})" if status else ""
+        raise click.ClickException(
+            f"Model provider unavailable{detail} — usually transient (rate limit / "
+            "high demand). Re-run shortly, or switch model: unset CONSILIUM_MODEL "
+            "for the default, or use an Anthropic model."
+        ) from None
+
+
 @click.group()
 def main() -> None:
     pass
@@ -39,7 +69,7 @@ def deliberate_cmd(
         with open(path, encoding="utf-8") as f:
             ctx_text += f"\n\n--- {path} ---\n" + f.read()
 
-    report = deliberate(
+    report = _deliberate_or_exit(
         proposal,
         context=ctx_text,
         mode=mode,
@@ -90,7 +120,7 @@ def check_cmd(
     if not context.strip():
         raise click.ClickException("No diff found. Use --diff HEAD~1 or stage some changes.")
 
-    report = deliberate(
+    report = _deliberate_or_exit(
         proposal,
         context=context,
         mode=mode,
