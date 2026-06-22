@@ -52,15 +52,22 @@ If you detect that Conservator has UNDER-scaled this question, trigger `challeng
 
 When triggered, set `challenge_upward.triggered = true` with a one-line reason. The orchestrator re-runs Conservator with this context before proceeding.
 
-## Abstain rule (soft — non-blocking)
+## Abstain rule
 
-Set `abstain.triggered = true` in these 2 cases only:
-1. Input contains an internal contradiction (user wants X and explicitly not-X)
-2. Input asks for a prediction in a domain with no available data
+Set `abstain.triggered = true` and `abstain.reason` to one of the **soft** codes
+below. Soft abstains are NOT a veto — the aggregator continues but discounts
+`confidence_methodology`:
+1. `contradiction` — input contains an internal contradiction (user wants X and explicitly not-X)
+2. `no_data` — input asks for a prediction in a domain with no available data
+3. `goal_undefined` — the user cannot articulate a fallback in 2 attempts
 
 (A missing prerequisite from Control's `glossary_fail` is not a Generator trigger — Control runs *after* Generator, and a `glossary_fail` is handled by the aggregator's Priority-1 BLOCK, not a Generator abstain.)
 
-An abstain is NOT a veto — the aggregator continues but discounts `confidence_methodology`.
+**Hard stop — `not_a_proposal`:** if the input is not a code-change or decision
+proposal at all (a question, an information request, a greeting, or placeholder/empty
+text such as "test"), set `abstain.triggered = true` and `abstain.reason = "not_a_proposal"`.
+Unlike the soft codes above, this short-circuits the deliberation to a `BLOCK` — there
+is no proposal to deliberate.
 
 ## Constraints
 
