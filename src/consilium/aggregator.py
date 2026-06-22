@@ -34,6 +34,17 @@ def _any_irreversibility_flag(conservator_out: dict) -> tuple[bool, str | None]:
     return False, None
 
 
+def _chosen_candidate(generator_out: dict, chosen_id: str | None) -> dict:
+    """Return the Generator candidate dict matching chosen_id (or {})."""
+    if not chosen_id:
+        return {}
+    options = generator_out.get("options", generator_out.get("candidates", []))
+    for opt in options:
+        if isinstance(opt, dict) and opt.get("id") == chosen_id:
+            return opt
+    return {}
+
+
 def _net_concern_for(conservator_out: dict, cid: str, default: float = 0.15) -> float:
     for s in conservator_out.get("scores") or []:
         if isinstance(s, dict) and s.get("id") == cid:
@@ -272,12 +283,22 @@ def aggregate_sequential(
         _extract_voice_output("control", ctrl_out, ctrl_text),
     ]
 
+    chosen = agg.get("chosen")
+    candidate = _chosen_candidate(gen_out, chosen)
+
+    # description is the fixture/legacy field name; sketch is the prompt's field.
+    sketch = candidate.get("sketch") or candidate.get("description")
+
     return Report(
         verdict=verdict,  # type: ignore[arg-type]
         confidence=round(confidence, 3),
         recommendation=recommendation,
         voices=voices,
-        chosen=agg.get("chosen"),
+        chosen=chosen,
+        chosen_summary=candidate.get("summary"),
+        chosen_sketch=sketch,
+        chosen_rationale=candidate.get("rationale"),
+        reason=agg.get("reason"),
         pipeline_executed=True,
         mode="sequential",
     )

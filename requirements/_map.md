@@ -1,5 +1,5 @@
 ---
-generated: 2026-06-22 12:21
+generated: 2026-06-22 20:03
 nodes: 11
 edges: 22
 ---
@@ -61,6 +61,8 @@ graph LR
   CPYBUS_CLI_001 -->|implements| f_src_consilium_cli_py_2
   f_tests_test_cli_py_2["tests/test_cli.py:2"]
   CPYBUS_CLI_001 -->|tested-by| f_tests_test_cli_py_2
+  f_tests_test_cli_io_py_4["tests/test_cli_io.py:4"]
+  CPYBUS_CLI_001 -->|tested-by| f_tests_test_cli_io_py_4
   CPYBUS_SKEPTIC_001["Shared Skeptic challenge<br><small>CPYBUS-SKEPTIC-001</small>"]
   f_src_consilium_skeptic_py_7["src/consilium/skeptic.py:7"]
   CPYBUS_SKEPTIC_001 -->|implements| f_src_consilium_skeptic_py_7
