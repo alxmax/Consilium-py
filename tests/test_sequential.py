@@ -59,6 +59,17 @@ CTRL_SUBSTANTIAL = json.dumps({
     "disagreements": [{"type": "substantial", "summary": "Voices disagree on rollout"}],
 })
 
+GEN_NOT_PROPOSAL = json.dumps({
+    "options": [],
+    "abstain": {"triggered": True, "reason": "not_a_proposal"},
+})
+
+GEN_SOFT_ABSTAIN = json.dumps({
+    "preferred": "approach_a",
+    "options": [{"id": "approach_a"}, {"id": "approach_b"}],
+    "abstain": {"triggered": True, "reason": "goal_undefined"},
+})
+
 
 class TestRunSequential(unittest.TestCase):
     def _run(self, cons: str, gen: str, ctrl: str, proposal: str = "Add health check"):
@@ -110,6 +121,25 @@ class TestRunSequential(unittest.TestCase):
         report = self._run(CONS_GO, GEN_GO, CTRL_SUBSTANTIAL)
         self.assertEqual(report.verdict, "MODIFY")
         self.assertEqual(report.confidence, 0.1)
+
+    def test_not_a_proposal_blocks(self):
+        """AC1: a non-proposal short-circuits to BLOCK, not GO/MODIFY."""
+        report = self._run(CONS_GO, GEN_NOT_PROPOSAL, CTRL_GO)
+        self.assertEqual(report.verdict, "BLOCK")
+        self.assertEqual(report.confidence, 0.1)
+        self.assertNotIn(report.verdict, ("GO", "MODIFY"))
+        self.assertIn("not a deliberation input", report.recommendation.lower())
+
+    def test_malformed_generator_does_not_block(self):
+        """AC2: unparseable Generator output falls through, never a silent short-circuit."""
+        report = self._run(CONS_GO, "this is not json", CTRL_GO)
+        self.assertNotEqual(report.verdict, "BLOCK")
+
+    def test_soft_abstain_is_not_short_circuited(self):
+        """AC3: a real proposal flagged with a soft abstain reason is NOT mislabeled."""
+        report = self._run(CONS_GO, GEN_SOFT_ABSTAIN, CTRL_GO)
+        self.assertNotEqual(report.verdict, "BLOCK")
+        self.assertNotIn("not a deliberation input", report.recommendation.lower())
 
     def test_sample_fixture_validates(self):
         data = json.loads((FIXTURE_DIR / "sample_report.json").read_text())

@@ -69,6 +69,19 @@ def _run_sequential_scheme(
             "action": "Confirm explicitly that this decision is irreversible before proceeding",
         }
 
+    abstain = generator_out.get("abstain") or {}
+    if abstain.get("triggered") and abstain.get("reason") == "not_a_proposal":
+        return {
+            "scheme": "sequential",
+            "result": "BLOCK",
+            "reason": "not_a_proposal",
+            "action": (
+                "Not a deliberation input — the input is not a code change or "
+                "decision to deliberate. Rephrase it as a concrete proposal "
+                "(e.g. 'Add Redis caching to the API')."
+            ),
+        }
+
     disagreements = control_out.get("disagreements", [])
     substantial = [d for d in disagreements if isinstance(d, dict) and d.get("type") == "substantial"]
     if substantial:
