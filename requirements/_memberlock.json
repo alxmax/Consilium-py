@@ -2,7 +2,7 @@
   "_schema": 1,
   "members": {
     "CPYBUS-AGG-001": {
-      "src/consilium/aggregator.py": "1bf66438a9c6b102d77f2c7aa652b8b00db7b513c87ab6cdf4ea53ae02bb5b11"
+      "src/consilium/aggregator.py": "393cad04cff4eea6af5d6978a6c06f4c9132723e28ea8a8636b62827fbf93669"
     },
     "CPYBUS-SKEPTIC-001": {
       "src/consilium/skeptic.py": "1d6b6b5ab1631a4fb0369c8458837632331475841e6da3d6be7b2243038afcc4"

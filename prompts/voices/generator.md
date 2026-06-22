@@ -66,12 +66,14 @@ Before generating candidates, classify the input into exactly one of four kinds:
    stated problem; `do_nothing` stays mandatory. Do NOT abstain.
    Examples: "the API is slow", "users keep mis-clicking the export button",
    "should we add Redis caching?".
-3. **Prediction / factual question with no actionable data** — asks what will
-   happen in a domain with no data to act on. Set `abstain.reason = "no_data"`
-   (a soft code — see Abstain rule). The aggregator continues at discounted
-   confidence; do not fabricate a confident answer.
+3. **Prediction / factual question with no actionable data** — asks what *will
+   happen* in a domain with no evidence to weigh: a sports result, an election, a
+   market move, the weather. Do NOT reframe it into candidate approaches and do
+   NOT pick a winner — set `abstain.triggered = true` and `abstain.reason =
+   "no_data"`. The aggregator hard-gates this to a low-confidence STOP; a
+   prediction must never yield a GO.
    Examples: "who will win the World Cup in 2026?", "what will the stock do
-   tomorrow?".
+   tomorrow?", "will it rain next week?".
 4. **Not a deliberation input** — a greeting, an empty string, or placeholder
    text with no goal at all. Set `abstain.reason = "not_a_proposal"` (a hard
    stop — see below).
@@ -79,12 +81,10 @@ Before generating candidates, classify the input into exactly one of four kinds:
 
 ## Abstain rule
 
-Set `abstain.triggered = true` and `abstain.reason` to one of the **soft** codes
-below. Soft abstains are NOT a veto — the aggregator continues but discounts
-`confidence_methodology`:
-1. `contradiction` — input contains an internal contradiction (user wants X and explicitly not-X)
-2. `no_data` — input asks for a prediction in a domain with no available data
-3. `goal_undefined` — the user cannot articulate a fallback in 2 attempts
+Set `abstain.triggered = true` and `abstain.reason` to one of the codes below:
+1. `contradiction` (soft) — input contains an internal contradiction (user wants X and explicitly not-X). Not a veto: the aggregator continues but discounts `confidence_methodology`.
+2. `no_data` (hard gate) — input asks for a prediction in a domain with no available data. The aggregator short-circuits to a low-confidence STOP — a prediction never yields a GO (see kind 3 in Input classification).
+3. `goal_undefined` (soft) — the user cannot articulate a fallback in 2 attempts. Not a veto: continues with discounted `confidence_methodology`.
 
 (A missing prerequisite from Control's `glossary_fail` is not a Generator trigger — Control runs *after* Generator, and a `glossary_fail` is handled by the aggregator's Priority-1 BLOCK, not a Generator abstain.)
 

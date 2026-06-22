@@ -130,6 +130,18 @@ def _run_sequential_scheme(
             "action": "Voices show substantial disagreement — clarify before final aggregation",
         }
 
+    if abstain.get("triggered") and abstain.get("reason") == "no_data":
+        return {
+            "scheme": "sequential",
+            "result": "NO_DATA",
+            "reason": "no_data",
+            "action": (
+                "No data to deliberate — the input asks for a prediction in a "
+                "domain with no available evidence to weigh. Treated as a "
+                "low-confidence STOP; a prediction never yields a GO."
+            ),
+        }
+
     if "scale_down" in triggers:
         preferred = generator_out.get("preferred")
         return {
@@ -248,6 +260,7 @@ _RESULT_TO_VERDICT = {
     "ESCALATE": "ESCALATE",
     "ADAPT_SHORT": "GO",
     "ADAPT_EXTENDED": "MODIFY",
+    "NO_DATA": "STOP",
 }
 
 
@@ -274,7 +287,7 @@ def aggregate_sequential(
         # Bypass verdicts (BLOCK, REWORK, ESCALATE) carry a categorical low
         # confidence (CPYBUS-AGG-001). Test scheme_result, not verdict, because
         # REWORK is mapped to MODIFY above and would otherwise leak 0.5.
-        confidence = 0.1 if scheme_result in ("BLOCK", "REWORK", "ESCALATE") else 0.5
+        confidence = 0.1 if scheme_result in ("BLOCK", "REWORK", "ESCALATE", "NO_DATA") else 0.5
         recommendation = agg.get("action", f"Result: {scheme_result}")
 
     voices = [
