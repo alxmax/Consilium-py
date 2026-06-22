@@ -8,7 +8,7 @@ from consilium.modes.dialectic import run_dialectic
 from consilium.modes.sequential import run_sequential
 from consilium.modes.trias import run_trias
 from consilium.models import DeliberationInput, Report
-from consilium.voices import plain_answer
+from consilium.voices import plain_answer, short_response
 
 _SUPPORTED_MODES = ("sequential", "dialectic", "trias", "langgraph")
 _DEFAULT_MODEL = "openrouter/google/gemini-2.0-flash-001"
@@ -59,6 +59,12 @@ def deliberate(
             reason="not_a_proposal",
             mode=mode,
         )
+
+    # scale_down: the deliberation compressed to a short response. Generate the
+    # actual 2-sentence reply rather than leak the "give a short response"
+    # instruction (the recommendation) to the user.
+    if report.reason == "scale_down":
+        report = report.model_copy(update={"recommendation": short_response(proposal, model)})
 
     # RAG: persist + index the run after deliberation.
     if rag:

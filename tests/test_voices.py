@@ -100,6 +100,17 @@ class TestPlainAnswer(unittest.TestCase):
         self.assertEqual(user_msg, "hi")
         self.assertEqual(model, "some-model")
 
+    def test_short_response_routes_through_call_voice(self):
+        """short_response() makes one concise call_voice() call."""
+        from consilium import voices
+        with patch.object(voices, "call_voice", return_value="short!") as mock:
+            result = voices.short_response("trivial change", "m")
+        self.assertEqual(result, "short!")
+        mock.assert_called_once()
+        _name, system, user_msg, model = mock.call_args.args
+        self.assertIn("2 sentences", system)
+        self.assertEqual(user_msg, "trivial change")
+
 
 if __name__ == "__main__":
     unittest.main()

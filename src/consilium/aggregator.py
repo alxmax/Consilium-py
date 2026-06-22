@@ -148,6 +148,7 @@ def _run_sequential_scheme(
             "scheme": "sequential",
             "result": "ADAPT_SHORT",
             "meta_recommendation": "scale_down",
+            "reason": "scale_down",
             "chosen": preferred,
             "action": "Compressed deliberation — short response (max 2 sentences)",
         }

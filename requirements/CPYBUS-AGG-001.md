@@ -19,14 +19,14 @@ Converts the three raw voice text outputs into a `Report` (a Pydantic model). Ru
   4. Three or more simultaneous triggers (substantial disagreement, scale_down/scale_up, soft generator abstain) → `ESCALATE`
   5. Substantial disagreement in Control → `REWORK` → mapped to `MODIFY`
   6. Generator `abstain.reason == "no_data"` → `NO_DATA` → mapped to `STOP` at confidence `0.1` (a prediction with no evidence to weigh). Sits ABOVE `scale_down`, so such input never becomes a `GO`.
-  7. `scale_down` meta-recommendation → `ADAPT_SHORT` → mapped to `GO`
+  7. `scale_down` meta-recommendation → `ADAPT_SHORT` (reason `scale_down`) → mapped to `GO`. `deliberate()` then replaces the placeholder recommendation with a generated short response (see CPYBUS-API-001).
   8. `scale_up` meta-recommendation → `ADAPT_EXTENDED` → mapped to `MODIFY`
   9. Default → `AGGREGATE` (normal scoring)
 - In the `AGGREGATE` path, `confidence` shall equal `confidence_methodology` (0.0–1.0). A `confidence_methodology ≥ 0.7` maps to verdict `GO`; `≥ 0.4` to `MODIFY`; below to `STOP`.
 - Non-`AGGREGATE` results map as: `BLOCK`→`BLOCK`, `REWORK`→`MODIFY`, `ESCALATE`→`ESCALATE`, `ADAPT_SHORT`→`GO`, `ADAPT_EXTENDED`→`MODIFY`, `NO_DATA`→`STOP`. `REWORK` is not an exposed verdict in `Report`; it maps to `MODIFY` so callers receive a consistent surface. The `recommendation` field carries the rework context. Bypass verdicts (BLOCK, REWORK, ESCALATE, NO_DATA) carry categorical confidence values (e.g. `0.1` for BLOCK and NO_DATA); no scoring floor is applied to them.
 - The returned `Report` shall contain one `VoiceOutput` per voice (conservator, generator, control) with `vote`, `score`, `reasoning`, and `concerns` fields populated from the parsed JSON.
 - When the aggregation result names a chosen candidate (`chosen`), the `Report` shall also surface that candidate's "how to implement" detail so a `GO`/`MODIFY` verdict carries actionable guidance, not just a verdict line. The aggregator looks up the Generator candidate whose `id` equals the chosen id — scanning the Generator's `options`, falling back to the legacy `candidates` key — and copies its `summary` → `chosen_summary`, its `sketch` (or, for legacy/fixture outputs, `description`) → `chosen_sketch`, and its `rationale` → `chosen_rationale`. When no candidate is chosen, or none matches the chosen id, all three are `None`.
-- The `Report.reason` field shall carry the machine-readable bypass reason from the aggregation result — one of `glossary_fail`, `irreversibility_no_consent`, `not_a_proposal`, or `substantial_disagreement` — or `None` on a normal `AGGREGATE`-path verdict. This lets callers (e.g. the CLI clarify branch) branch on the bypass cause without parsing the human-facing `recommendation` text.
+- The `Report.reason` field shall carry the machine-readable bypass reason from the aggregation result — one of `glossary_fail`, `irreversibility_no_consent`, `not_a_proposal`, `no_data`, `substantial_disagreement`, or `scale_down` — or `None` on a normal `AGGREGATE`-path verdict. This lets callers (e.g. `deliberate()`'s ANSWER and short-response conversions) branch on the cause without parsing the human-facing `recommendation` text.
 
 ## WHAT — Verify intent
 

@@ -101,3 +101,17 @@ def plain_answer(user_msg: str, model: str) -> str:
     (greeting / chit-chat / empty). Routes through `call_voice`, so it honors the
     same Anthropic-vs-LiteLLM dispatch as the deliberating voices."""
     return call_voice("assistant", _PLAIN_ANSWER_SYSTEM, user_msg, model)
+
+
+_SHORT_RESPONSE_SYSTEM = (
+    "The deliberation found this a low-risk, trivial request, so the long form is "
+    "overkill. Give a direct, useful response to the user's input in at most 2 "
+    "sentences."
+)
+
+
+def short_response(user_msg: str, model: str) -> str:
+    """Concise reply for the scale_down (compressed) path, where a full
+    deliberation is overkill. Produces the actual short response the path
+    promises, instead of leaking the 'give a short response' instruction."""
+    return call_voice("assistant", _SHORT_RESPONSE_SYSTEM, user_msg, model)

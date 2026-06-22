@@ -124,10 +124,27 @@ class TestNonDeliberationAnswer(unittest.TestCase):
         """A normal verdict is returned unchanged; plain_answer is not called."""
         from consilium import deliberate
         with patch("consilium.run_sequential", return_value=_go_report("sequential")), \
-                patch("consilium.plain_answer") as pa:
+                patch("consilium.plain_answer") as pa, \
+                patch("consilium.short_response") as sr:
             report = deliberate("Add health check", mode="sequential")
         self.assertEqual(report.verdict, "GO")
         pa.assert_not_called()
+        sr.assert_not_called()
+
+    def test_scale_down_gets_real_short_response(self):
+        """A scale_down report's leaked instruction is replaced by a real short reply."""
+        from consilium import deliberate
+        rep = Report(
+            verdict="GO", confidence=0.5,
+            recommendation="Compressed deliberation — short response (max 2 sentences)",
+            voices=[], reason="scale_down", mode="sequential",
+        )
+        with patch("consilium.run_sequential", return_value=rep), \
+                patch("consilium.short_response", return_value="No one can reliably predict it.") as sr:
+            report = deliberate("who will win the World Cup", mode="sequential")
+        self.assertEqual(report.recommendation, "No one can reliably predict it.")
+        self.assertEqual(report.verdict, "GO")
+        sr.assert_called_once()
 
 
 if __name__ == "__main__":
