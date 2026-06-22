@@ -61,6 +61,10 @@ def call_voice(_voice_name: str, system_prompt: str, user_msg: str, model: str) 
                 f"Model {model!r} requires LiteLLM. "
                 "Run: pip install 'consilium-py[litellm]'"
             )
+        # Silence LiteLLM's "Give Feedback / Get Help" + "LiteLLM.Info" stderr
+        # footer, which it prints on a transient error even when num_retries
+        # recovers the call. Unrecovered errors still propagate.
+        litellm.suppress_debug_info = True
         response = litellm.completion(
             model=model,
             max_tokens=4096,

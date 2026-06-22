@@ -58,6 +58,15 @@ class TestCallVoiceLiteLLM(unittest.TestCase):
         mock_litellm.completion.assert_called_once()
         self.assertEqual(mock_litellm.completion.call_args.kwargs["model"], "openai/gpt-4o")
 
+    def test_litellm_debug_footer_suppressed(self):
+        """The LiteLLM path sets suppress_debug_info to silence the stderr footer."""
+        from consilium.voices import call_voice
+        mock_litellm = MagicMock()
+        mock_litellm.completion.return_value.choices[0].message.content = "ok"
+        with patch.dict(sys.modules, {"litellm": mock_litellm}):
+            call_voice("g", "sys", "user", "openai/gpt-4o")
+        self.assertIs(mock_litellm.suppress_debug_info, True)
+
     def test_slash_model_missing_litellm_raises(self):
         """'/' model without litellm installed raises ImportError with hint."""
         from consilium.voices import call_voice
