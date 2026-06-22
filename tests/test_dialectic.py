@@ -15,6 +15,11 @@ GEN_GO = json.dumps({
 })
 CTRL_GO = json.dumps({"glossary_fail": False, "glossary": ["endpoint"], "disagreements": []})
 
+GEN_NOT_PROPOSAL = json.dumps({
+    "options": [],
+    "abstain": {"triggered": True, "reason": "not_a_proposal"},
+})
+
 SKEPTIC_NO_OBJECTION = json.dumps({
     "can_object": False,
     "objection": None,
@@ -100,6 +105,31 @@ class TestRunDialectic(unittest.TestCase):
         """Advisory: unaddressable doesn't override without --skeptic-can-override."""
         report = self._run(SKEPTIC_UNADDRESSABLE, skeptic_can_override=False)
         self.assertEqual(report.verdict, "GO")
+
+    def test_block_skips_skeptic(self):
+        """AC4: a not_a_proposal BLOCK from sequential skips the Skeptic entirely."""
+        from consilium.models import DeliberationInput
+        from consilium.modes.dialectic import run_dialectic
+
+        seq_outputs = iter([GEN_NOT_PROPOSAL, CONS_GO, CTRL_GO])
+        skeptic_calls = []
+
+        def mock_seq(*_a, **_kw):
+            return next(seq_outputs)
+
+        def mock_skeptic(*_a, **_kw):
+            skeptic_calls.append(1)
+            return SKEPTIC_NO_OBJECTION
+
+        with patch("consilium.modes.sequential.call_voice", side_effect=mock_seq), \
+             patch("consilium.skeptic.call_voice", side_effect=mock_skeptic):
+            report = run_dialectic(DeliberationInput(proposal="weather in Suceava?"))
+
+        self.assertEqual(report.verdict, "BLOCK")
+        self.assertEqual(report.mode, "dialectic")
+        self.assertEqual(len(skeptic_calls), 0)
+        self.assertEqual(len(report.voices), 3)
+        self.assertIsNone(report.skeptic)
 
 
 if __name__ == "__main__":
