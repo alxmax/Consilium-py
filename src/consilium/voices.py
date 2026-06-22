@@ -64,6 +64,9 @@ def call_voice(_voice_name: str, system_prompt: str, user_msg: str, model: str) 
         response = litellm.completion(
             model=model,
             max_tokens=4096,
+            # Retry transient provider errors (e.g. Gemini free/paid-tier 503
+            # "high demand", 429 rate limits) with exponential backoff.
+            num_retries=3,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_msg},
