@@ -105,8 +105,8 @@ state = s.box("~/.consilium/\nruns + chroma", 1260, y + 337, w=180, h=70, fill="
 s.arrow(gitd, cli, label="check")
 s.arrow(cli, eng, label="invoke")
 s.arrow(api, eng, label="call")
-s.arrow(eng, anth, label="voice call")
-s.arrow(eng, ltl, label="provider/")
+s.arrow(eng, anth, label="bare name")
+s.arrow(eng, ltl, label="provider/ default")
 s.arrow(eng, chroma, label="rag: recall/index")
 s.arrow(chroma, state, label="save_run")
 
@@ -149,5 +149,6 @@ s.glossary([
 
 s.save("consilium_architecture", out_dir="docs",
        crossing_check="error", legend_check="error",
-       overflow_check="error", text_overlap_check="error")
+       overflow_check="error", text_overlap_check="error",
+       label_fit_check="error")
 print("OK")
