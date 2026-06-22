@@ -67,5 +67,25 @@ class TestAnswerOutput(unittest.TestCase):
         self.assertNotIn("Confidence:", result.output)
 
 
+class TestProviderError(unittest.TestCase):
+    def test_provider_503_shows_clean_message(self):
+        """A transient provider error becomes a clean CLI message, not a traceback."""
+        class FakeLLMError(Exception):
+            pass
+        FakeLLMError.__module__ = "litellm.exceptions"
+        with patch("consilium.cli.deliberate", side_effect=FakeLLMError("503 high demand")):
+            result = CliRunner().invoke(main, ["deliberate", "hi"])
+        self.assertEqual(result.exit_code, 1)
+        self.assertIn("provider unavailable", result.output.lower())
+        self.assertNotIn("Traceback", result.output)
+
+    def test_real_bug_is_not_masked(self):
+        """A non-provider exception propagates; it is not swallowed as a provider message."""
+        with patch("consilium.cli.deliberate", side_effect=ValueError("real bug")):
+            result = CliRunner().invoke(main, ["deliberate", "hi"])
+        self.assertNotEqual(result.exit_code, 0)
+        self.assertNotIn("provider unavailable", result.output.lower())
+
+
 if __name__ == "__main__":
     unittest.main()

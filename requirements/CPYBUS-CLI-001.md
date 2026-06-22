@@ -25,6 +25,7 @@ Exposes the deliberation engine as a terminal command (`consilium`) with two sub
 - If the diff is empty, `check` shall exit with an error ("No diff found.") rather than calling the API. Deliberating an empty diff has no meaningful output.
 - Non-zero exit codes from `git diff` shall propagate as `ClickException`.
 - `consilium index` shall index all runs in `~/.consilium/runs/` into the ChromaDB vector store (requires `[rag]` extra).
+- A transient model-provider failure (an exception whose root module is `litellm` or `openai`, or an `anthropic.APIError` — e.g. a `503` / rate limit / timeout) shall surface as a clean `ClickException` suggesting a retry or a model switch, not a raw traceback. A non-provider exception propagates unchanged so real bugs are never masked.
 
 ## WHAT — Verify intent
 
@@ -37,6 +38,7 @@ None — doc is unambiguous.
 - Given an empty diff, when `check_cmd` runs, then a `ClickException` is raised with "No diff found."
 - Given a `GO` verdict carrying a `chosen_sketch` in text mode, when `deliberate_cmd` runs, then output contains "How to implement (`<chosen>`)", the sketch, and "Why:"; given a `STOP` verdict, no such block is printed.
 - Given a report with verdict `ANSWER`, when `deliberate_cmd` runs in text mode, then output contains the reply and no `Verdict:` / `Confidence:` header (tested-by `tests/test_cli_io.py::TestAnswerOutput`).
+- Given `deliberate()` raises a provider error (exception module `litellm`/`openai`, or `anthropic.APIError`), when `deliberate_cmd` runs, then the CLI exits non-zero with a message naming the provider and no traceback; a non-provider exception is not masked (tested-by `tests/test_cli_io.py::TestProviderError`).
 
 ## WHERE — Current implementation
 

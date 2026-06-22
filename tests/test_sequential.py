@@ -84,6 +84,25 @@ GEN_SOFT_ABSTAIN = json.dumps({
     "abstain": {"triggered": True, "reason": "goal_undefined"},
 })
 
+GEN_NO_DATA = json.dumps({
+    "preferred": "approach_a",
+    "options": [{"id": "approach_a"}, {"id": "approach_b"}],
+    "abstain": {"triggered": True, "reason": "no_data"},
+})
+
+CONS_SCALE_DOWN = json.dumps({
+    "scores": [
+        {
+            "id": "approach_a",
+            "reversibility": "complete",
+            "magnitude": "trivial",
+            "regression_risk": {"net_concern": 0.1, "magnitude": "trivial"},
+            "irreversibility_flag": False,
+            "meta_recommendation": "scale_down",
+        }
+    ]
+})
+
 
 class TestRunSequential(unittest.TestCase):
     def _run(self, cons: str, gen: str, ctrl: str, proposal: str = "Add health check"):
@@ -162,6 +181,20 @@ class TestRunSequential(unittest.TestCase):
         """A non-proposal BLOCK carries no chosen approach to sketch."""
         report = self._run(CONS_GO, GEN_NOT_PROPOSAL, CTRL_GO)
         self.assertIsNone(report.chosen_sketch)
+
+    def test_no_data_stops_low_confidence(self):
+        """A prediction (no_data abstain) is a low-confidence STOP, never GO/MODIFY."""
+        report = self._run(CONS_GO, GEN_NO_DATA, CTRL_GO)
+        self.assertEqual(report.verdict, "STOP")
+        self.assertEqual(report.reason, "no_data")
+        self.assertLess(report.confidence, 0.4)
+
+    def test_no_data_beats_scale_down(self):
+        """Regression (World Cup GO 0.50): no_data short-circuits ABOVE scale_down,
+        so a prediction the Conservator deems trivial still STOPs instead of GOing."""
+        report = self._run(CONS_SCALE_DOWN, GEN_NO_DATA, CTRL_GO)
+        self.assertEqual(report.verdict, "STOP")
+        self.assertEqual(report.reason, "no_data")
 
     def test_malformed_generator_does_not_block(self):
         """AC2: unparseable Generator output falls through, never a silent short-circuit."""
