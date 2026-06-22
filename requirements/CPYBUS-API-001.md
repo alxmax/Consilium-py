@@ -20,6 +20,7 @@ The single public entry point for programmatic use. Routes a proposal to the req
 - `skeptic_can_override` is forwarded only to `run_dialectic`; it is silently ignored for other modes.
 - `rag=True` enables RAG context injection (requires `consilium-py[rag]` extra; see CPYEXT-RAG-001).
 - The return type is always `consilium.models.Report`.
+- When the selected mode returns a report with `reason == "not_a_proposal"` (a non-deliberation input — greeting, chit-chat, or empty), `deliberate()` shall replace it with a plain answer rather than return the `BLOCK`: a `Report` with `verdict = "ANSWER"`, the conversational reply from a single `voices.plain_answer()` call in `recommendation`, empty `voices`, and `confidence = 0.0`. Such answers are not persisted to RAG. (Problems and decision-questions are reframed into candidates by the Generator and never carry this reason; dataless predictions use the soft `no_data` path and stay a low-confidence deliberation.)
 
 ## WHAT — Verify intent
 
@@ -32,6 +33,7 @@ None — doc is unambiguous.
 - Given `mode="langgraph"`, when `deliberate` is called, then `report.mode == "langgraph"`.
 - Given `mode="unknown"`, when `deliberate` is called, then `ValueError` is raised.
 - Given `CONSILIUM_MODEL=claude-haiku-4-5` in env, when `deliberate("test", model="claude-sonnet-4-6")` is called, then all voice calls use `claude-haiku-4-5`.
+- Given the selected mode returns a report with `reason == "not_a_proposal"`, when `deliberate` is called, then the returned report has `verdict == "ANSWER"` with `recommendation` supplied by `plain_answer()` (tested-by `tests/test_api.py::TestNonDeliberationAnswer`).
 
 ## WHERE — Current implementation
 

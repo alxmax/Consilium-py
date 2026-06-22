@@ -52,6 +52,31 @@ If you detect that Conservator has UNDER-scaled this question, trigger `challeng
 
 When triggered, set `challenge_upward.triggered = true` with a one-line reason. The orchestrator re-runs Conservator with this context before proceeding.
 
+## Input classification — what to deliberate
+
+Before generating candidates, classify the input into exactly one of four kinds:
+
+1. **Concrete proposal** — a specific code change or decision (e.g. "Add Redis
+   caching to the API"). Generate candidates directly, as described in Task above.
+2. **Problem or decision-question** — a stated problem (e.g. "the API is slow")
+   or an open decision / "how should we" question (e.g. "should we migrate to
+   Postgres?"). **Reframe** it into the implicit proposal *"propose approaches to
+   address the stated problem / answer the stated decision"* and generate
+   candidates against that goal. `success_criterion` is the resolution of the
+   stated problem; `do_nothing` stays mandatory. Do NOT abstain.
+   Examples: "the API is slow", "users keep mis-clicking the export button",
+   "should we add Redis caching?".
+3. **Prediction / factual question with no actionable data** — asks what will
+   happen in a domain with no data to act on. Set `abstain.reason = "no_data"`
+   (a soft code — see Abstain rule). The aggregator continues at discounted
+   confidence; do not fabricate a confident answer.
+   Examples: "who will win the World Cup in 2026?", "what will the stock do
+   tomorrow?".
+4. **Not a deliberation input** — a greeting, an empty string, or placeholder
+   text with no goal at all. Set `abstain.reason = "not_a_proposal"` (a hard
+   stop — see below).
+   Examples: "hi", "thanks", "test", "".
+
 ## Abstain rule
 
 Set `abstain.triggered = true` and `abstain.reason` to one of the **soft** codes
@@ -63,11 +88,13 @@ below. Soft abstains are NOT a veto — the aggregator continues but discounts
 
 (A missing prerequisite from Control's `glossary_fail` is not a Generator trigger — Control runs *after* Generator, and a `glossary_fail` is handled by the aggregator's Priority-1 BLOCK, not a Generator abstain.)
 
-**Hard stop — `not_a_proposal`:** if the input is not a code-change or decision
-proposal at all (a question, an information request, a greeting, or placeholder/empty
-text such as "test"), set `abstain.triggered = true` and `abstain.reason = "not_a_proposal"`.
-Unlike the soft codes above, this short-circuits the deliberation to a `BLOCK` — there
-is no proposal to deliberate.
+**Hard stop — `not_a_proposal`:** reserve this for input with no deliberable goal
+at all — a greeting, an empty string, or placeholder text such as "test" or "hi"
+(kind 4 in Input classification). Set `abstain.triggered = true` and
+`abstain.reason = "not_a_proposal"`. Unlike the soft codes above, this
+short-circuits the deliberation to a `BLOCK`. A problem or a decision-question is
+NOT a hard stop — reframe it (kind 2); a dataless prediction is `no_data` (kind 3),
+not `not_a_proposal`.
 
 ## Constraints
 

@@ -1,4 +1,4 @@
-"""CLI input/output contract: clarify-on-non-proposal + how-to-implement output.
+"""CLI input/output contract: plain-answer for non-deliberation input + how-to-implement output.
 Voices/deliberation are mocked — no API calls.
 """
 # tested-by: CPYBUS-CLI-001
@@ -30,10 +30,10 @@ STOP_REPORT = Report(
     chosen_sketch="Should never be printed for STOP.",
 )
 
-NOT_A_PROPOSAL = Report(
-    verdict="BLOCK",
-    confidence=0.1,
-    recommendation="Not a deliberation input — rephrase as a concrete proposal.",
+ANSWER_REPORT = Report(
+    verdict="ANSWER",
+    confidence=0.0,
+    recommendation="Hello! How can I help?",
     voices=[],
     reason="not_a_proposal",
 )
@@ -56,38 +56,15 @@ class TestHowToImplementOutput(unittest.TestCase):
         self.assertNotIn("never be printed", result.output)
 
 
-class TestClarifyOnNonProposal(unittest.TestCase):
-    def test_non_interactive_keeps_block_sentinel(self):
-        """Non-TTY (CI/pipe): no prompt, BLOCK is preserved — deliberate called once."""
-        with patch("consilium.cli.deliberate", return_value=NOT_A_PROPOSAL) as dlb:
-            result = CliRunner().invoke(main, ["deliberate", "How is the weather"])
+class TestAnswerOutput(unittest.TestCase):
+    def test_answer_printed_plainly(self):
+        """A non-deliberation input is answered directly: only the reply, no verdict header."""
+        with patch("consilium.cli.deliberate", return_value=ANSWER_REPORT):
+            result = CliRunner().invoke(main, ["deliberate", "hi"])
         self.assertEqual(result.exit_code, 0)
-        self.assertEqual(dlb.call_count, 1)
-        self.assertIn("Not a deliberation input", result.output)
-
-    def test_interactive_clarify_reruns_on_rephrase(self):
-        """TTY: the dead-end BLOCK prompts once; the user's rephrase is re-deliberated."""
-        outputs = iter([NOT_A_PROPOSAL, GO_WITH_SKETCH])
-        with patch("consilium.cli.deliberate", side_effect=lambda *a, **k: next(outputs)) as dlb, \
-                patch("consilium.cli._stdin_is_tty", return_value=True):
-            result = CliRunner().invoke(
-                main, ["deliberate", "How is the weather"], input="Add a /health endpoint\n"
-            )
-        self.assertEqual(result.exit_code, 0)
-        self.assertEqual(dlb.call_count, 2)
-        # second call deliberated the rephrased proposal
-        self.assertEqual(dlb.call_args_list[1].args[0], "Add a /health endpoint")
-        self.assertIn("How to implement (approach_a)", result.output)
-
-    def test_interactive_skip_keeps_block(self):
-        """TTY but user presses Enter: no re-deliberation, original guidance stands."""
-        with patch("consilium.cli.deliberate", return_value=NOT_A_PROPOSAL) as dlb, \
-                patch("consilium.cli._stdin_is_tty", return_value=True):
-            result = CliRunner().invoke(
-                main, ["deliberate", "How is the weather"], input="\n"
-            )
-        self.assertEqual(result.exit_code, 0)
-        self.assertEqual(dlb.call_count, 1)
+        self.assertIn("Hello! How can I help?", result.output)
+        self.assertNotIn("Verdict:", result.output)
+        self.assertNotIn("Confidence:", result.output)
 
 
 if __name__ == "__main__":

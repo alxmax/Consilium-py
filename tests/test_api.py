@@ -104,5 +104,31 @@ class TestConsuliumModelEnvVar(unittest.TestCase):
         self.assertEqual(captured[0], "claude-sonnet-4-6")
 
 
+class TestNonDeliberationAnswer(unittest.TestCase):
+    def test_not_a_proposal_becomes_plain_answer(self):
+        """A not_a_proposal report is replaced by a plain ANSWER, not returned as BLOCK."""
+        from consilium import deliberate
+        block = Report(
+            verdict="BLOCK", confidence=0.1, recommendation="blocked",
+            voices=[], reason="not_a_proposal", mode="sequential",
+        )
+        with patch("consilium.run_sequential", return_value=block), \
+                patch("consilium.plain_answer", return_value="Hello! How can I help?") as pa:
+            report = deliberate("hi", mode="sequential")
+        self.assertEqual(report.verdict, "ANSWER")
+        self.assertEqual(report.recommendation, "Hello! How can I help?")
+        self.assertEqual(report.voices, [])
+        pa.assert_called_once()
+
+    def test_normal_verdict_not_converted(self):
+        """A normal verdict is returned unchanged; plain_answer is not called."""
+        from consilium import deliberate
+        with patch("consilium.run_sequential", return_value=_go_report("sequential")), \
+                patch("consilium.plain_answer") as pa:
+            report = deliberate("Add health check", mode="sequential")
+        self.assertEqual(report.verdict, "GO")
+        pa.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()

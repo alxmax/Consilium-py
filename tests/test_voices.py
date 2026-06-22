@@ -87,5 +87,19 @@ class TestCallVoiceLiteLLM(unittest.TestCase):
         self.assertEqual(result, "anthropic response")
 
 
+class TestPlainAnswer(unittest.TestCase):
+    def test_routes_through_call_voice(self):
+        """plain_answer() makes one call_voice() call with the assistant system prompt."""
+        from consilium import voices
+        with patch.object(voices, "call_voice", return_value="hello there") as mock:
+            result = voices.plain_answer("hi", "some-model")
+        self.assertEqual(result, "hello there")
+        mock.assert_called_once()
+        _name, system, user_msg, model = mock.call_args.args
+        self.assertIn("not a code change", system)
+        self.assertEqual(user_msg, "hi")
+        self.assertEqual(model, "some-model")
+
+
 if __name__ == "__main__":
     unittest.main()
