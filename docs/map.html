@@ -374,6 +374,7 @@
       "contract": [
         "`call_voice()` shall detect the routing at call time: if `\"/\" in model`, use `litellm.completion()`; otherwise use the existing Anthropic SDK path. Both paths coexist in the same function; no existing call site changes.",
         "The LiteLLM call shall use `model=model`, `max_tokens=4096`, and a `messages` list with `{\"role\": \"system\", \"content\": system_prompt}` followed by `{\"role\": \"user\", \"content\": user_msg}`.",
+        "On the LiteLLM path, `call_voice()` shall retry transient provider errors (`num_retries=3` — e.g. a Gemini 503 \"high demand\" or a 429 rate limit) and set `litellm.suppress_debug_info = True`, so LiteLLM's \"Give Feedback / Get Help\" stderr footer is not printed when a retried error is recovered and the call ultimately succeeds. Errors that exhaust the retries still propagate.",
         "The return value from the LiteLLM path shall be `response.choices[0].message.content or \"\"`.",
         "When `litellm` is not installed and model contains `\"/\"`, `call_voice()` shall raise `ImportError` with a `pip install 'consilium-py[litellm]'` hint.",
         "`deliberate()` shall read `CONSILIUM_MODEL` from the environment before any voice runs. When set, it overrides the `model` parameter for that call.",
@@ -389,11 +390,12 @@
       ],
       "acc": [
         "Given `call_voice(\"g\", sys, usr, \"openai/gpt-4o\")` with litellm mocked, when called, then `litellm.completion` is called with `model=\"openai/gpt-4o\"`.",
+        "Given the LiteLLM path is taken with litellm mocked, when `call_voice()` runs, then `litellm.suppress_debug_info` is set to `True` (tested-by `tests/test_voices.py::TestCallVoiceLiteLLM::test_litellm_debug_footer_suppressed`).",
         "Given `call_voice(\"g\", sys, usr, \"openai/gpt-4o\")` with litellm absent from sys.modules, when called, then `ImportError` is raised containing `\"consilium-py[litellm]\"`.",
         "Given `call_voice(\"c\", sys, usr, \"claude-sonnet-4-6\")` (no `\"/\"`), when called, then the Anthropic SDK path is used and litellm is not imported.",
         "Given `CONSILIUM_MODEL=claude-haiku-4-5` in the environment, when `deliberate(\"test\", model=\"claude-sonnet-4-6\")` is called, then all voice calls receive `claude-haiku-4-5` as the model."
       ],
-      "accept": "- Given `call_voice(\"g\", sys, usr, \"openai/gpt-4o\")` with litellm mocked, when called, then `litellm.completion` is called with `model=\"openai/gpt-4o\"`.\n- Given `call_voice(\"g\", sys, usr, \"openai/gpt-4o\")` with litellm absent from sys.modules, when called, then `ImportError` is raised containing `\"consilium-py[litellm]\"`.\n- Given `call_voice(\"c\", sys, usr, \"claude-sonnet-4-6\")` (no `\"/\"`), when called, then the Anthropic SDK path is used and litellm is not imported.\n- Given `CONSILIUM_MODEL=claude-haiku-4-5` in the environment, when `deliberate(\"test\", model=\"claude-sonnet-4-6\")` is called, then all voice calls receive `claude-haiku-4-5` as the model.",
+      "accept": "- Given `call_voice(\"g\", sys, usr, \"openai/gpt-4o\")` with litellm mocked, when called, then `litellm.completion` is called with `model=\"openai/gpt-4o\"`.\n- Given the LiteLLM path is taken with litellm mocked, when `call_voice()` runs, then `litellm.suppress_debug_info` is set to `True` (tested-by `tests/test_voices.py::TestCallVoiceLiteLLM::test_litellm_debug_footer_suppressed`).\n- Given `call_voice(\"g\", sys, usr, \"openai/gpt-4o\")` with litellm absent from sys.modules, when called, then `ImportError` is raised containing `\"consilium-py[litellm]\"`.\n- Given `call_voice(\"c\", sys, usr, \"claude-sonnet-4-6\")` (no `\"/\"`), when called, then the Anthropic SDK path is used and litellm is not imported.\n- Given `CONSILIUM_MODEL=claude-haiku-4-5` in the environment, when `deliberate(\"test\", model=\"claude-sonnet-4-6\")` is called, then all voice calls receive `claude-haiku-4-5` as the model.",
       "input": "",
       "output": "",
       "desc": "",
