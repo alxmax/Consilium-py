@@ -63,10 +63,17 @@ def call_voice(_voice_name: str, system_prompt: str, user_msg: str, model: str) 
 
         claude_bin = shutil.which("claude") or "claude"  # resolve .CMD/.exe shim on Windows
         full = f"{system_prompt}\n\n{user_msg}"
+        # --max-turns 1 + no tools forces a single pure-text completion. Without this,
+        # each voice is a full Claude Code agent that EXECUTES task-instructions embedded
+        # in the prompt (e.g. "write answer.md, pick one letter") instead of deliberating —
+        # a hijack that silently corrupts the deliberation. With it, the voice behaves like
+        # a clean API completion, so this is a valid no-API-key Anthropic backend.
         proc = subprocess.run(
             [
                 claude_bin, "--model", "sonnet", "--output-format", "text",
-                "--permission-mode", "bypassPermissions", "-p",
+                "--max-turns", "1",
+                "--disallowedTools", "Bash Edit Write Read Glob Grep NotebookEdit WebFetch WebSearch Task TodoWrite",
+                "-p",
             ],
             input=full, capture_output=True, text=True, encoding="utf-8", timeout=240,
         )
