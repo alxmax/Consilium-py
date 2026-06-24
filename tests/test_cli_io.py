@@ -86,6 +86,21 @@ class TestProviderError(unittest.TestCase):
         self.assertNotEqual(result.exit_code, 0)
         self.assertNotIn("provider unavailable", result.output.lower())
 
+    def test_provider_404_marked_permanent(self):
+        """A 404 (retired/unknown model) is reported as permanent, not 'transient — re-run shortly'."""
+        class FakeLLMError(Exception):
+            status_code = 404
+        FakeLLMError.__module__ = "litellm.exceptions"
+        with patch("consilium.cli.deliberate", side_effect=FakeLLMError("model not found")):
+            result = CliRunner().invoke(
+                main, ["deliberate", "hi", "--model", "gemini/gemini-2.0-flash"]
+            )
+        self.assertEqual(result.exit_code, 1)
+        self.assertIn("404", result.output)
+        self.assertIn("not transient", result.output.lower())
+        self.assertNotIn("re-run shortly", result.output.lower())
+        self.assertNotIn("Traceback", result.output)
+
 
 if __name__ == "__main__":
     unittest.main()

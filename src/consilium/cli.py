@@ -33,6 +33,17 @@ def _deliberate_or_exit(proposal: str, **kwargs) -> Report:
         if not _is_provider_error(e):
             raise
         status = getattr(e, "status_code", None)
+        model = kwargs.get("model") or "the configured model"
+        # A 404 (model retired/unknown) or 401/403 (auth) is PERMANENT — telling the
+        # user to "re-run shortly" sends them into an infinite retry on a dead model.
+        # Only 429 / 5xx / connection errors (no status) are genuinely transient.
+        if status in (401, 403, 404):
+            kind = "not found or retired" if status == 404 else "rejected (auth / permission)"
+            raise click.ClickException(
+                f"Model {model!r} {kind} (HTTP {status}) — this is NOT transient. "
+                "Pick a current model (unset CONSILIUM_MODEL for the default, or pass "
+                "--model, e.g. gemini/gemini-2.5-flash) and check the matching API key."
+            ) from None
         detail = f" (HTTP {status})" if status else ""
         raise click.ClickException(
             f"Model provider unavailable{detail} — usually transient (rate limit / "
@@ -156,3 +167,7 @@ def _print_report(report: Report, output: str) -> None:
         click.echo(f"\nSkeptic ({report.skeptic.addressable}): {report.skeptic.failure_mode}")
         for c in report.skeptic.concrete_concerns:
             click.echo(f"  - {c}")
+
+
+if __name__ == "__main__":  # enables `python -m consilium.cli ...`
+    main()
