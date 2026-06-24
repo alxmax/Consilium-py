@@ -53,6 +53,27 @@ def extract_json(text: str) -> dict[str, Any]:
 
 
 def call_voice(_voice_name: str, system_prompt: str, user_msg: str, model: str) -> str:
+    if model == "claude-cli":
+        # Dispatch each voice through the Claude Code CLI (`claude -p`), reusing the
+        # local subscription auth instead of an API key. Note: each call reloads the
+        # full Claude Code harness, so this is a demo/no-key path — NOT the lean
+        # direct-API dispatch that makes the LangGraph mode cheap.
+        import shutil  # noqa: PLC0415
+        import subprocess  # noqa: PLC0415
+
+        claude_bin = shutil.which("claude") or "claude"  # resolve .CMD/.exe shim on Windows
+        full = f"{system_prompt}\n\n{user_msg}"
+        proc = subprocess.run(
+            [
+                claude_bin, "--model", "sonnet", "--output-format", "text",
+                "--permission-mode", "bypassPermissions", "-p",
+            ],
+            input=full, capture_output=True, text=True, encoding="utf-8", timeout=240,
+        )
+        if proc.returncode != 0:
+            raise RuntimeError(f"claude -p failed ({proc.returncode}): {proc.stderr[:300]}")
+        return proc.stdout
+
     if "/" in model:
         try:
             import litellm  # noqa: PLC0415

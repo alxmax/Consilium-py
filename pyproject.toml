@@ -10,6 +10,7 @@ requires-python = ">=3.11"
 dependencies = [
     "anthropic>=0.25.0",
     "litellm>=1.0",
+    "tenacity>=8.0",  # litellm needs it at runtime for num_retries; not always pulled in transitively
     "click>=8.1",
     "pydantic>=2.0",
 ]
