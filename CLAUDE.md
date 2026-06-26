@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 # Install (editable, with all extras)
-pip install -e ".[dev,server,rag,langgraph,litellm]"
+pip install -e ".[dev,server,rag,langgraph]"
 
 # Run all tests (no API calls — voices are mocked)
 python -m pytest

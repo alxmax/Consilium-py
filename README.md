@@ -3,7 +3,7 @@
 Dialectical code-change deliberation as a standalone Python package.
 
 Same deliberation engine as the [Consilium Claude Code skill](https://github.com/alxmax/Consilium),
-usable without Claude Code — from any terminal, CI pipeline, or Python script.
+usable without Claude Code — from any terminal, CI pipeline, Python script, or HTTP API.
 
 ```bash
 pip install consilium-py

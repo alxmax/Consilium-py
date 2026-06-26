@@ -68,12 +68,11 @@ class TestCallVoiceLiteLLM(unittest.TestCase):
         self.assertIs(mock_litellm.suppress_debug_info, True)
 
     def test_slash_model_missing_litellm_raises(self):
-        """'/' model without litellm installed raises ImportError with hint."""
+        """'/' model with a broken litellm install still raises ImportError."""
         from consilium.voices import call_voice
         with patch.dict(sys.modules, {"litellm": None}):
-            with self.assertRaises(ImportError) as ctx:
+            with self.assertRaises(ImportError):
                 call_voice("g", "sys", "user", "openai/gpt-4o")
-        self.assertIn("consilium-py[litellm]", str(ctx.exception))
 
     def test_non_slash_model_stays_on_anthropic_path(self):
         """Model without '/' stays on the Anthropic SDK path."""
