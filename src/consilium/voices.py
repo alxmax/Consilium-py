@@ -82,13 +82,7 @@ def call_voice(_voice_name: str, system_prompt: str, user_msg: str, model: str) 
         return proc.stdout
 
     if "/" in model:
-        try:
-            import litellm  # noqa: PLC0415
-        except ImportError:
-            raise ImportError(
-                f"Model {model!r} requires LiteLLM. "
-                "Run: pip install 'consilium-py[litellm]'"
-            )
+        import litellm  # noqa: PLC0415
         # Silence LiteLLM's "Give Feedback / Get Help" + "LiteLLM.Info" stderr
         # footer, which it prints on a transient error even when num_retries
         # recovers the call. Unrecovered errors still propagate.
