@@ -36,6 +36,7 @@ export OPENROUTER_API_KEY=sk-or-...
 
 | Extra | What it adds | Install |
 |---|---|---|
+| `[server]` | FastAPI HTTP server — `POST /deliberate` over HTTP | `pip install 'consilium-py[server]'` |
 | `[rag]` | ChromaDB context injection — retrieves similar past decisions | `pip install 'consilium-py[rag]'` |
 | `[langgraph]` | LangGraph orchestration mode replacing the sequential pipeline | `pip install 'consilium-py[langgraph]'` |
 
@@ -92,6 +93,44 @@ report = deliberate(
 # RAG: inject similar past decisions as context (requires [rag] extra)
 report = deliberate("Add rate limiting", rag=True)
 ```
+
+### HTTP API
+
+Requires the `[server]` extra. Runs the three-voice deliberation over HTTP — useful for CI pipelines, polyglot codebases, or quick demos.
+
+```bash
+pip install 'consilium-py[server]'
+
+# Start (default Anthropic/OpenRouter backend)
+export ANTHROPIC_API_KEY=sk-ant-...
+uvicorn consilium.server:app --port 8123
+
+# Or use claude-cli — no API key, just a Claude subscription
+CONSILIUM_MODEL=claude-cli uvicorn consilium.server:app --port 8123
+```
+
+```bash
+curl -X POST http://localhost:8123/deliberate \
+  -H "Content-Type: application/json" \
+  -d '{"proposal": "Add a /health endpoint to the auth service"}'
+# → {"verdict":"GO","confidence":0.5,"recommendation":...}
+```
+
+Request body fields: `proposal` (required), `context`, `mode` (`sequential` / `dialectic` / `trias`), `model` — all optional except `proposal`. If `model` is omitted, `CONSILIUM_MODEL` env var is used.
+
+### No-API-key backend (claude-cli)
+
+If you have a Claude subscription (Claude Code CLI), you can run deliberations without any API key:
+
+```bash
+consilium deliberate "Add caching" --model claude-cli
+```
+
+```python
+report = deliberate("Add caching", model="claude-cli")
+```
+
+Each voice call routes through `claude -p` (Claude Code CLI). Slower than a direct API call but useful for demos, local exploration, or when you don't have an API key.
 
 ### Provider-agnostic (LiteLLM)
 
@@ -154,6 +193,7 @@ print(report.recommendation)
 - `OPENROUTER_API_KEY` — required for the default OpenRouter models
 - `ANTHROPIC_API_KEY` — required when using bare Anthropic/Claude model names (e.g. `claude-sonnet-4-6`)
 - Provider-specific env vars for other providers via LiteLLM (`OPENAI_API_KEY`, `GEMINI_API_KEY`, etc.)
+- No API key needed when using `--model claude-cli` — requires the [Claude Code CLI](https://claude.ai/code) installed and authenticated
 
 ## Related
 
