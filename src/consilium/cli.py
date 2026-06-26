@@ -8,6 +8,7 @@ import subprocess
 import click
 
 from consilium import deliberate
+from consilium.explain import explain_module
 from consilium.models import Report
 
 
@@ -167,6 +168,41 @@ def _print_report(report: Report, output: str) -> None:
         click.echo(f"\nSkeptic ({report.skeptic.addressable}): {report.skeptic.failure_mode}")
         for c in report.skeptic.concrete_concerns:
             click.echo(f"  - {c}")
+
+
+@main.command("explain")
+@click.argument("path")
+@click.option("--model", default="openrouter/google/gemini-2.0-flash-001", envvar="CONSILIUM_MODEL")
+@click.option("--output", type=click.Choice(["text", "json"]), default="text")
+def explain_cmd(path: str, model: str, output: str) -> None:
+    """Explain the Python code at PATH (file or directory)."""
+    try:
+        report = explain_module(path, model)
+    except Exception as e:  # noqa: BLE001
+        if not _is_provider_error(e):
+            raise
+        raise click.ClickException(str(e)) from None
+
+    if output == "json":
+        import json as _json
+        click.echo(_json.dumps(report.model_dump(), indent=2, ensure_ascii=False))
+        return
+
+    click.echo(f"\n{report.summary}")
+    if report.public_api:
+        click.echo("\nPublic API:")
+        for item in report.public_api:
+            click.echo(f"  {item}")
+    if report.dependencies:
+        click.echo("\nDependencies:")
+        for item in report.dependencies:
+            click.echo(f"  {item}")
+    if report.data_flow:
+        click.echo(f"\nData flow:\n  {report.data_flow}")
+    if report.gotchas:
+        click.echo("\nGotchas:")
+        for item in report.gotchas:
+            click.echo(f"  ! {item}")
 
 
 if __name__ == "__main__":  # enables `python -m consilium.cli ...`

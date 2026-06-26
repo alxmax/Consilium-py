@@ -2,6 +2,14 @@ from pydantic import BaseModel
 from typing import Literal
 
 
+class ExplainReport(BaseModel):
+    summary: str
+    public_api: list[str] = []
+    dependencies: list[str] = []
+    data_flow: str = ""
+    gotchas: list[str] = []
+
+
 class DeliberationInput(BaseModel):
     proposal: str
     context: str = ""
