@@ -62,17 +62,18 @@ def call_voice(_voice_name: str, system_prompt: str, user_msg: str, model: str) 
         import subprocess  # noqa: PLC0415
 
         claude_bin = shutil.which("claude") or "claude"  # resolve .CMD/.exe shim on Windows
-        full = f"{system_prompt}\n\n{user_msg}"
-        # --max-turns 1 + no tools forces a single pure-text completion. Without this,
-        # each voice is a full Claude Code agent that EXECUTES task-instructions embedded
-        # in the prompt (e.g. "write answer.md, pick one letter") instead of deliberating —
-        # a hijack that silently corrupts the deliberation. With it, the voice behaves like
-        # a clean API completion, so this is a valid no-API-key Anthropic backend.
+        # The <SUBAGENT-STOP> header tells the global using-superpowers skill to
+        # skip its "invoke skills before responding" loop, so the voice gets a
+        # clean completion instead of XML tool-call preambles.  --tools none
+        # removes all built-in and MCP tools so Claude can't execute anything
+        # from the prompt (anti-hijack), and with no tools available it never
+        # burns turns on blocked attempts.
+        full = f"<SUBAGENT-STOP>\nYou are a subagent dispatched to perform a specific evaluation. Respond with plain text only — no tool calls.\n</SUBAGENT-STOP>\n\n{system_prompt}\n\n{user_msg}"
         proc = subprocess.run(
             [
                 claude_bin, "--model", "sonnet", "--output-format", "text",
                 "--max-turns", "1",
-                "--disallowedTools", "Bash Edit Write Read Glob Grep NotebookEdit WebFetch WebSearch Task TodoWrite",
+                "--tools", "none",
                 "-p",
             ],
             input=full, capture_output=True, text=True, encoding="utf-8", timeout=240,
