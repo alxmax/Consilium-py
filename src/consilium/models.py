@@ -14,7 +14,6 @@ class DeliberationInput(BaseModel):
     proposal: str
     context: str = ""
     model: str = "openrouter/google/gemini-2.0-flash-001"
-    effort: Literal["low", "medium", "high"] = "medium"
 
 
 class VoiceOutput(BaseModel):

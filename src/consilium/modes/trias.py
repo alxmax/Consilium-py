@@ -17,7 +17,7 @@ from consilium.voices import call_voice, load_prompt
 
 PERSONALITIES = ["pioneer", "architect", "steward"]
 
-# Vote-pattern → confidence (from confidence.py VOTE_PATTERN_CONFIDENCE)
+# Vote-pattern → confidence (ported from the original Consilium skill's confidence.py)
 _VOTE_CONFIDENCE: dict[str, float | None] = {
     "3-0": 0.95,
     "2-1": 0.75,

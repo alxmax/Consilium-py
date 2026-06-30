@@ -57,3 +57,41 @@ class TestServerEndpoint(unittest.TestCase):
             )
         self.assertEqual(resp.status_code, 200)
         self.assertIn("verdict", resp.json())
+
+    def test_provider_error_returns_actionable_detail_not_raw_500(self) -> None:
+        """A provider failure becomes a clean 502 + detail, not an unhandled 500."""
+        class FakeLLMError(Exception):
+            status_code = 401
+        FakeLLMError.__module__ = "litellm.exceptions"
+        with patch("consilium.server.deliberate", side_effect=FakeLLMError("auth rejected")):
+            resp = self.client.post("/deliberate", json={"proposal": "Add health check"})
+        self.assertEqual(resp.status_code, 502)
+        detail = resp.json()["detail"]
+        self.assertIn("not transient", detail.lower())
+        self.assertNotIn("401", str(resp.status_code))  # the caller's own status must not be 401
+
+    def test_non_provider_exception_is_not_masked(self) -> None:
+        """A real bug still surfaces (not silently reclassified as a provider error)."""
+        with patch("consilium.server.deliberate", side_effect=ValueError("real bug")):
+            with self.assertRaises(ValueError):
+                self.client.post("/deliberate", json={"proposal": "Add health check"})
+
+    def test_rag_and_skeptic_override_fields_reach_deliberate(self) -> None:
+        from consilium.models import Report
+        stub = Report(verdict="GO", confidence=0.9, recommendation="ok", voices=[])
+        with patch("consilium.server.deliberate", return_value=stub) as mock_deliberate:
+            self.client.post(
+                "/deliberate",
+                json={"proposal": "Add health check", "mode": "dialectic",
+                      "rag": True, "skeptic_can_override": True},
+            )
+        self.assertEqual(mock_deliberate.call_args.kwargs["rag"], True)
+        self.assertEqual(mock_deliberate.call_args.kwargs["skeptic_can_override"], True)
+
+    def test_rag_and_skeptic_override_default_false(self) -> None:
+        from consilium.models import Report
+        stub = Report(verdict="GO", confidence=0.9, recommendation="ok", voices=[])
+        with patch("consilium.server.deliberate", return_value=stub) as mock_deliberate:
+            self.client.post("/deliberate", json={"proposal": "Add health check"})
+        self.assertEqual(mock_deliberate.call_args.kwargs["rag"], False)
+        self.assertEqual(mock_deliberate.call_args.kwargs["skeptic_can_override"], False)

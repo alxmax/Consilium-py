@@ -35,19 +35,20 @@ def extract_json(text: str) -> dict[str, Any]:
         except json.JSONDecodeError:
             pass
 
+    # Brace-depth counting on raw characters mis-tracks braces that appear
+    # inside JSON string values (e.g. a "sketch" field containing pseudocode
+    # like "if (x) { return y; }"), truncating the slice and silently
+    # producing {}. raw_decode() uses the real JSON tokenizer, so it is
+    # string-boundary aware; retry from each subsequent '{' if a given start
+    # position isn't valid JSON (e.g. a brace in surrounding prose).
+    decoder = json.JSONDecoder()
     start = text.find("{")
-    if start != -1:
-        depth = 0
-        for i, ch in enumerate(text[start:], start):
-            if ch == "{":
-                depth += 1
-            elif ch == "}":
-                depth -= 1
-                if depth == 0:
-                    try:
-                        return json.loads(text[start : i + 1])
-                    except json.JSONDecodeError:
-                        break
+    while start != -1:
+        try:
+            obj, _ = decoder.raw_decode(text, start)
+            return obj
+        except json.JSONDecodeError:
+            start = text.find("{", start + 1)
 
     return {}
 
