@@ -1,4 +1,5 @@
 """Unit tests for consilium explain — call_voice mocked, no API calls."""
+# tested-by: CPYBUS-EXPLAIN-001
 import json
 import unittest
 from pathlib import Path

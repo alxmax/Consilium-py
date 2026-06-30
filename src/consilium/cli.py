@@ -11,10 +11,10 @@ from consilium import deliberate
 from consilium.explain import explain_module
 from consilium.models import Report
 
+_DEFAULT_MODEL = "openrouter/google/gemini-2.0-flash-001"
+
 
 def _is_provider_error(e: BaseException) -> bool:
-    """True for a transient LLM-provider failure (litellm/openai/anthropic) — a
-    503, rate limit, timeout — as opposed to a real bug, which we must not mask."""
     root = (type(e).__module__ or "").split(".")[0]
     if root in ("litellm", "openai"):
         return True
@@ -26,8 +26,6 @@ def _is_provider_error(e: BaseException) -> bool:
 
 
 def _deliberate_or_exit(proposal: str, **kwargs) -> Report:
-    """Call `deliberate()`, turning a provider outage into a clean CLI message
-    instead of a raw traceback. Non-provider exceptions propagate unchanged."""
     try:
         return deliberate(proposal, **kwargs)
     except Exception as e:  # noqa: BLE001
@@ -35,36 +33,104 @@ def _deliberate_or_exit(proposal: str, **kwargs) -> Report:
             raise
         status = getattr(e, "status_code", None)
         model = kwargs.get("model") or "the configured model"
-        # A 404 (model retired/unknown) or 401/403 (auth) is PERMANENT — telling the
-        # user to "re-run shortly" sends them into an infinite retry on a dead model.
-        # Only 429 / 5xx / connection errors (no status) are genuinely transient.
         if status in (401, 403, 404):
             kind = "not found or retired" if status == 404 else "rejected (auth / permission)"
             raise click.ClickException(
-                f"Model {model!r} {kind} (HTTP {status}) — this is NOT transient. "
-                "Pick a current model (unset CONSILIUM_MODEL for the default, or pass "
-                "--model, e.g. gemini/gemini-2.5-flash) and check the matching API key."
+                f"Model {model!r} {kind} (HTTP {status}) — not transient. "
+                "Set CONSILIUM_MODEL=claude-cli to use your local Claude subscription."
             ) from None
         detail = f" (HTTP {status})" if status else ""
         raise click.ClickException(
-            f"Model provider unavailable{detail} — usually transient (rate limit / "
-            "high demand). Re-run shortly, or switch model: unset CONSILIUM_MODEL "
-            "for the default, or use an Anthropic model."
+            f"Model provider unavailable{detail} — try again shortly, or set "
+            "CONSILIUM_MODEL=claude-cli to use your local Claude subscription."
         ) from None
 
 
-@click.group()
-def main() -> None:
-    pass
+@click.group(invoke_without_command=True)
+@click.pass_context
+def main(ctx: click.Context) -> None:
+    """Consilium — AI deliberation for code changes.
+
+    \b
+    Quick start (no API key needed):
+      consilium serve                       start the web UI
+      consilium deliberate "your proposal"  deliberate in the terminal
+      consilium check                       review staged git changes
+      consilium explain src/               explain a codebase
+
+    \b
+    Set CONSILIUM_MODEL=claude-cli to use your local Claude subscription.
+    Set CONSILIUM_MODEL=openrouter/... or any provider/model for API access.
+    """
+    if ctx.invoked_subcommand is None:
+        click.echo(ctx.get_help())
+
+
+# implements: CPYSRV-SERVE-001
+@main.command("serve")
+@click.option("--port", default=8124, help="Port to listen on (tries next free port if busy).")
+@click.option("--host", default="127.0.0.1", hidden=True)
+@click.option("--model", default=_DEFAULT_MODEL, envvar="CONSILIUM_MODEL",
+              help="Model to use. Default: CONSILIUM_MODEL env var.")
+@click.option("--no-browser", is_flag=True, default=False, help="Don't open browser automatically.")
+def serve_cmd(port: int, host: str, model: str, no_browser: bool) -> None:
+    """Start the web UI server.
+
+    \b
+    Examples:
+      consilium serve
+      consilium serve --port 9000
+      CONSILIUM_MODEL=claude-cli consilium serve
+    """
+    try:
+        import uvicorn  # noqa: PLC0415
+    except ImportError:
+        raise click.ClickException(
+            "The server requires the [server] extra.\n"
+            "Run: pip install 'consilium-py[server]'"
+        )
+
+    import os
+    import socket
+    import threading
+    import webbrowser
+
+    os.environ["CONSILIUM_MODEL"] = model
+
+    # Find a free port if the requested one is busy.
+    def _is_free(p: int) -> bool:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            return s.connect_ex((host, p)) != 0
+
+    while not _is_free(port):
+        click.echo(f"  Port {port} busy — trying {port + 1}…")
+        port += 1
+
+    url = f"http://{host}:{port}"
+    click.echo(f"\n  Consilium  →  {url}\n  Model: {model}\n  Press Ctrl+C to stop.\n")
+
+    if not no_browser:
+        def _open() -> None:
+            import time
+            time.sleep(1.2)
+            webbrowser.open(url)
+        threading.Thread(target=_open, daemon=True).start()
+
+    uvicorn.run("consilium.server:app", host=host, port=port, log_level="warning")
 
 
 @main.command("deliberate")
 @click.argument("proposal")
-@click.option("--context", "-c", multiple=True, help="Context files (path)")
-@click.option("--mode", default="sequential", type=click.Choice(["sequential", "dialectic", "trias", "langgraph"]))
-@click.option("--model", default="openrouter/google/gemini-2.0-flash-001", envvar="CONSILIUM_MODEL", help="Model string. Use 'provider/model' for LiteLLM (e.g. openrouter/google/gemini-2.0-flash-001).")
-@click.option("--skeptic-can-override", is_flag=True, default=False, help="Allow Skeptic to downgrade verdict (dialectic only)")
-@click.option("--rag", is_flag=True, default=False, help="Inject similar past runs as context (requires consilium-py[rag])")
+@click.option("--context", "-c", multiple=True, help="Context files (path).")
+@click.option("--mode", default="sequential",
+              type=click.Choice(["sequential", "dialectic", "trias", "langgraph"]),
+              help="Deliberation mode.")
+@click.option("--model", default=_DEFAULT_MODEL, envvar="CONSILIUM_MODEL",
+              help="Model string. Use 'provider/model' for LiteLLM.")
+@click.option("--skeptic-can-override", is_flag=True, default=False,
+              help="Allow Skeptic to downgrade verdict (dialectic only).")
+@click.option("--rag", is_flag=True, default=False,
+              help="Inject similar past runs as context (requires consilium-py[rag]).")
 @click.option("--output", type=click.Choice(["text", "json"]), default="text")
 def deliberate_cmd(
     proposal: str,
@@ -75,7 +141,14 @@ def deliberate_cmd(
     rag: bool,
     output: str,
 ) -> None:
-    """Deliberate a proposed change."""
+    """Deliberate a proposed change.
+
+    \b
+    Examples:
+      consilium deliberate "Add a /health endpoint"
+      consilium deliberate "Refactor auth" --mode dialectic
+      consilium deliberate "Add caching" -c api.py -c models.py
+    """
     ctx_text = ""
     for path in context:
         with open(path, encoding="utf-8") as f:
@@ -89,25 +162,15 @@ def deliberate_cmd(
         skeptic_can_override=skeptic_can_override,
         rag=rag,
     )
-
     _print_report(report, output)
 
 
-@main.command("index")
-def index_cmd() -> None:
-    """Index all past runs in ~/.consilium/runs/ into the RAG vector store."""
-    try:
-        from consilium.rag import index_all_runs  # noqa: PLC0415
-    except ImportError as e:
-        raise click.ClickException(str(e))
-    count = index_all_runs()
-    click.echo(f"Indexed {count} run(s) into ~/.consilium/chroma/")
-
-
 @main.command("check")
-@click.option("--diff", default=None, help="Git ref for diff (e.g. HEAD~1, main). Omit for staged changes.")
-@click.option("--mode", default="sequential", type=click.Choice(["sequential", "dialectic", "trias", "langgraph"]))
-@click.option("--model", default="openrouter/google/gemini-2.0-flash-001", envvar="CONSILIUM_MODEL", help="Model string. Use 'provider/model' for LiteLLM (e.g. openrouter/google/gemini-2.0-flash-001).")
+@click.option("--diff", default=None,
+              help="Git ref to diff against (e.g. HEAD~1, main). Omit for staged changes.")
+@click.option("--mode", default="sequential",
+              type=click.Choice(["sequential", "dialectic", "trias", "langgraph"]))
+@click.option("--model", default=_DEFAULT_MODEL, envvar="CONSILIUM_MODEL")
 @click.option("--skeptic-can-override", is_flag=True, default=False)
 @click.option("--output", type=click.Choice(["text", "json"]), default="text")
 def check_cmd(
@@ -117,7 +180,14 @@ def check_cmd(
     skeptic_can_override: bool,
     output: str,
 ) -> None:
-    """Deliberate on a git diff."""
+    """Deliberate on a git diff.
+
+    \b
+    Examples:
+      consilium check                  review staged changes
+      consilium check --diff HEAD~1    review last commit
+      consilium check --diff main      review branch vs main
+    """
     if diff:
         result = subprocess.run(["git", "diff", diff], capture_output=True, text=True)
         proposal = f"Review this diff (git diff {diff})"
@@ -130,52 +200,32 @@ def check_cmd(
 
     context = result.stdout
     if not context.strip():
-        raise click.ClickException("No diff found. Use --diff HEAD~1 or stage some changes.")
+        raise click.ClickException(
+            "No diff found.\n"
+            "  Stage changes with: git add <files>\n"
+            "  Or specify a ref:   consilium check --diff HEAD~1"
+        )
 
     report = _deliberate_or_exit(
-        proposal,
-        context=context,
-        mode=mode,
-        model=model,
+        proposal, context=context, mode=mode, model=model,
         skeptic_can_override=skeptic_can_override,
     )
     _print_report(report, output)
 
 
-def _print_report(report: Report, output: str) -> None:
-    if output == "json":
-        click.echo(json.dumps(report.model_dump(), indent=2, ensure_ascii=False))
-        return
-    # A non-deliberation input (greeting/chit-chat) is answered directly —
-    # print only the reply, with no verdict/confidence header.
-    if report.verdict == "ANSWER":
-        click.echo(f"\n{report.recommendation}")
-        return
-    click.echo(f"\nVerdict:    {report.verdict}")
-    click.echo(f"Confidence: {report.confidence:.2f}")
-    click.echo(f"Mode:       {report.mode}")
-    click.echo(f"\n{report.recommendation}")
-    # "How to implement" — only for actionable verdicts; a STOP/BLOCK
-    # carries no chosen approach worth sketching.
-    if report.verdict in ("GO", "MODIFY") and report.chosen_sketch:
-        click.echo(f"\nHow to implement ({report.chosen}):")
-        if report.chosen_summary:
-            click.echo(f"  {report.chosen_summary}")
-        click.echo(f"  {report.chosen_sketch}")
-        if report.chosen_rationale:
-            click.echo(f"  Why: {report.chosen_rationale}")
-    if report.skeptic and report.skeptic.can_object:
-        click.echo(f"\nSkeptic ({report.skeptic.addressable}): {report.skeptic.failure_mode}")
-        for c in report.skeptic.concrete_concerns:
-            click.echo(f"  - {c}")
-
-
+# implements: CPYBUS-EXPLAIN-001
 @main.command("explain")
 @click.argument("path")
-@click.option("--model", default="openrouter/google/gemini-2.0-flash-001", envvar="CONSILIUM_MODEL")
+@click.option("--model", default=_DEFAULT_MODEL, envvar="CONSILIUM_MODEL")
 @click.option("--output", type=click.Choice(["text", "json"]), default="text")
 def explain_cmd(path: str, model: str, output: str) -> None:
-    """Explain the Python code at PATH (file or directory)."""
+    """Explain the Python code at PATH (file or directory).
+
+    \b
+    Examples:
+      consilium explain src/consilium/voices.py
+      consilium explain src/consilium/ --output json
+    """
     try:
         report = explain_module(path, model)
     except Exception as e:  # noqa: BLE001
@@ -184,8 +234,7 @@ def explain_cmd(path: str, model: str, output: str) -> None:
         raise click.ClickException(str(e)) from None
 
     if output == "json":
-        import json as _json
-        click.echo(_json.dumps(report.model_dump(), indent=2, ensure_ascii=False))
+        click.echo(json.dumps(report.model_dump(), indent=2, ensure_ascii=False))
         return
 
     click.echo(f"\n{report.summary}")
@@ -205,5 +254,45 @@ def explain_cmd(path: str, model: str, output: str) -> None:
             click.echo(f"  ! {item}")
 
 
-if __name__ == "__main__":  # enables `python -m consilium.cli ...`
+@main.command("index")
+def index_cmd() -> None:
+    """Index past runs into the RAG vector store (requires consilium-py[rag])."""
+    try:
+        from consilium.rag import index_all_runs  # noqa: PLC0415
+    except ImportError as e:
+        raise click.ClickException(str(e))
+    count = index_all_runs()
+    click.echo(f"Indexed {count} run(s) into ~/.consilium/chroma/")
+
+
+def _print_report(report: Report, output: str) -> None:
+    if output == "json":
+        click.echo(json.dumps(report.model_dump(), indent=2, ensure_ascii=False))
+        return
+    if report.verdict == "ANSWER":
+        click.echo(f"\n{report.recommendation}")
+        return
+
+    _VERDICT_COLOR = {"GO": "green", "MODIFY": "yellow", "STOP": "red", "BLOCK": "red"}
+    color = _VERDICT_COLOR.get(report.verdict, "white")
+    click.echo("")
+    click.echo(click.style(f"  {report.verdict}", fg=color, bold=True) +
+               f"  confidence {report.confidence:.0%}  mode {report.mode}")
+    click.echo(f"\n  {report.recommendation}")
+
+    if report.verdict in ("GO", "MODIFY") and report.chosen_sketch:
+        click.echo(f"\n  How to implement ({report.chosen}):")
+        if report.chosen_summary:
+            click.echo(f"    {report.chosen_summary}")
+        click.echo(f"    {report.chosen_sketch}")
+        if report.chosen_rationale:
+            click.echo(f"    Why: {report.chosen_rationale}")
+
+    if report.skeptic and report.skeptic.can_object:
+        click.echo(f"\n  Skeptic ({report.skeptic.addressable}): {report.skeptic.failure_mode}")
+        for c in report.skeptic.concrete_concerns:
+            click.echo(f"    - {c}")
+
+
+if __name__ == "__main__":
     main()

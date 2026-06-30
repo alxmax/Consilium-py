@@ -67,7 +67,7 @@ All extras guard their imports with `try/except ImportError` and surface a `pip 
 - **LiteLLM** (`voices.py`): triggered when `model` contains `/`
 - **RAG** (`rag.py`): ChromaDB at `~/.consilium/chroma/`; runs persist to `~/.consilium/runs/`
 - **LangGraph** (`modes/langgraph_mode.py`): imports at call site
-- **FastAPI server**: `consilium.server` module (not in `src/` by default — installed via `[server]` extra)
+- **FastAPI server**: `src/consilium/server.py` — module ships in `src/`, but `fastapi`/`uvicorn` are only pulled in via the `[server]` extra; the module raises a clear `ImportError` if imported without it
 
 ### Requirements traceability
 

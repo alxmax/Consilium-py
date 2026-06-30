@@ -82,20 +82,23 @@ def retrieve(proposal: str, k: int = _TOP_K, max_distance: float = _MAX_DISTANCE
         )
         return []
 
+    from chromadb.api.types import IncludeEnum  # noqa: PLC0415
+
     results = col.query(
         query_texts=[proposal],
         n_results=min(k, count),
-        include=["documents", "metadatas", "distances"],
+        include=[IncludeEnum.documents, IncludeEnum.metadatas, IncludeEnum.distances],
     )
 
+    documents = results["documents"]
+    metadatas = results["metadatas"]
+    distances = results["distances"]
+    assert documents is not None and metadatas is not None and distances is not None
+
     snippets: list[str] = []
-    for doc, meta, dist in zip(
-        results["documents"][0],
-        results["metadatas"][0],
-        results["distances"][0],
-    ):
+    for doc, meta, dist in zip(documents[0], metadatas[0], distances[0]):
         if dist <= max_distance:
-            rec = meta["recommendation"][:120]
+            rec = str(meta["recommendation"])[:120]
             snippets.append(
                 f"[{meta['verdict']} {meta['confidence']:.2f}] {doc[:80]!r}: \"{rec}\""
             )
