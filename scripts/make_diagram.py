@@ -46,20 +46,22 @@ s.label("Three AI voices deliberate a code change into a GO/MODIFY/STOP verdict.
 y = s.section("1 - STRUCTURE   the modules under src/consilium/")
 gx, gy = 80, y + 8
 pkg = s.grid([
-    ("cli.py\ndeliberate/check/index", "interface"),
+    ("cli.py\n5 subcommands", "interface"),
     ("__init__.py\ndeliberate() API", "interface"),
     ("modes/\nseq.dia.trias.lg", "engine"),
     ("voices.py\nAPI dispatch", "voice"),
-    ("prompts/voices\n7 .md prompts", "voice"),
+    ("prompts/voices\n8 .md prompts", "voice"),
     ("skeptic.py\nadversarial pass", "voice"),
     ("aggregator.py\nscheme -> verdict", "aggregation"),
     ("confidence.py\nscore variance", "aggregation"),
     ("models.py\nReport schema", "data"),
     ("rag.py\npast-run recall", "data"),
+    ("explain.py\nexplain_module()", "voice"),
+    ("server.py\nFastAPI HTTP", "interface"),
 ], gx, gy, 5, w=178, h=64, gap_x=40, gap_y=34, font_size=12)
 s.enclose(pkg, pad=22, label=None)
 pkg_cx = gx + (5 * 178 + 4 * 40) / 2
-s.label("consilium-py package (src/consilium/)", pkg_cx, gy + 64 * 2 + 34 + 30, size=13)
+s.label("consilium-py package (src/consilium/)", pkg_cx, gy + 64 * 3 + 34 * 2 + 30, size=13)
 # dev tooling, lives outside the package
 tool = s.box("reqmap.py\nrequirement SSOT", gx + 5 * 178 + 4 * 40 + 70, gy + 50,
              w=170, h=64, fill="tooling", font_size=12)
@@ -93,10 +95,11 @@ s.label("StateGraph orchestration", 960, y + 80, size=12)
 
 # ── 4 · INTEGRATION ───────────────────────────────────────────────────────────
 y = s.section("4 - INTEGRATION   invoked, external systems, persisted state")
-cli = s.box("consilium CLI\ndeliberate/check/index", 80, y, w=190, h=70, fill="interface", font_size=12)
+cli = s.box("consilium CLI\n5 subcommands", 80, y, w=190, h=70, fill="interface", font_size=12)
 gitd = s.box("git diff", 80, y + 180, w=190, h=64, fill="external", font_size=13)
 api = s.box("deliberate()\nPython API", 80, y + 360, w=190, h=64, fill="interface", font_size=12)
 eng = s.box("deliberate()\ndispatch + modes", 420, y + 170, w=180, h=90, fill="engine", font_size=13)
+serve = s.box("consilium serve\nuvicorn :8124", 420, y + 340, w=180, h=70, fill="interface", font_size=12)
 anth = s.box("Anthropic API", 880, y, w=180, h=70, fill="external", font_size=13)
 ltl = s.box("LiteLLM\nprovider/model", 880, y + 150, w=180, h=70, fill="external", font_size=12)
 chroma = s.box("ChromaDB", 880, y + 340, w=180, h=64, fill="external", font_size=13)
@@ -105,6 +108,8 @@ state = s.box("~/.consilium/\nruns + chroma", 1260, y + 337, w=180, h=70, fill="
 s.arrow(gitd, cli, label="check")
 s.arrow(cli, eng, label="invoke")
 s.arrow(api, eng, label="call")
+s.arrow(cli, serve, label="serve")
+s.arrow(serve, eng)
 s.arrow(eng, anth, label="bare name")
 s.arrow(eng, ltl, label="provider/ default")
 s.arrow(eng, chroma, label="rag: recall/index")
@@ -132,11 +137,11 @@ y = s.section("6 - DISTRIBUTION   how it ships")
 pypi = s.box("PyPI\nconsilium-py", 80, y, w=170, h=70, fill="distribution", font_size=13)
 pipi = s.box("pip install", 330, y, w=150, h=70, fill="distribution", font_size=13)
 entry = s.box("consilium\nconsole script", 760, y, w=170, h=70, fill="interface", font_size=12)
-extras = s.box("extras:\n[rag] [langgraph]\n[litellm]", 760, y + 120, w=190, h=80, fill="distribution", font_size=12)
+extras = s.box("extras:\n[server] [rag]\n[langgraph]", 760, y + 120, w=190, h=80, fill="distribution", font_size=12)
 s.arrow(pypi, pipi)
 s.arrow(pipi, entry, label="entry point")
 s.arrow(pipi, extras, label="optional deps")
-s.label("Each extra pulls its own deps only when installed; the core install is anthropic + click + pydantic.",
+s.label("Each extra pulls its own deps only when installed; the core install is anthropic + litellm + click + pydantic.",
         300, y + 215, size=11, align="center")
 
 # ── legend + glossary ─────────────────────────────────────────────────────────
