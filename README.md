@@ -198,6 +198,21 @@ print(report.recommendation)
 > A `404 No endpoints found` means the model isn't available on your account (add credits or
 > try a `:free` variant like `openrouter/google/gemini-2.0-flash-exp:free`).
 
+## Development
+
+```bash
+pip install -e ".[dev,server,rag,langgraph]"
+
+python -m pytest          # full suite — voices are mocked, no API calls
+pyright src/              # type check
+python scripts/reqmap.py gate   # requirement-traceability drift gate (CI-style check)
+```
+
+Every source file that implements a capability carries a `# implements: <ID>` comment; its
+tests carry `# tested-by: <ID>`. [`requirements/_map.md`](requirements/_map.md) is the generated
+source-of-truth map (also viewable as [`requirements/_map.html`](requirements/_map.html)) — the
+`gate` command above fails the build if code and requirements drift apart.
+
 ## Requirements
 
 - Python 3.11+
