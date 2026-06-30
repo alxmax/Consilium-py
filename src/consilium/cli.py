@@ -66,6 +66,7 @@ def main(ctx: click.Context) -> None:
         click.echo(ctx.get_help())
 
 
+# implements: CPYSRV-SERVE-001
 @main.command("serve")
 @click.option("--port", default=8124, help="Port to listen on (tries next free port if busy).")
 @click.option("--host", default="127.0.0.1", hidden=True)
@@ -212,6 +213,7 @@ def check_cmd(
     _print_report(report, output)
 
 
+# implements: CPYBUS-EXPLAIN-001
 @main.command("explain")
 @click.argument("path")
 @click.option("--model", default=_DEFAULT_MODEL, envvar="CONSILIUM_MODEL")

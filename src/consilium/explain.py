@@ -1,4 +1,5 @@
 """explain_module — stateless codebase explanation via a single call_voice dispatch."""
+# implements: CPYBUS-EXPLAIN-001
 from __future__ import annotations
 
 from pathlib import Path

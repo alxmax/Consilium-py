@@ -69,6 +69,14 @@ consilium check
 # Use a different model (or set CONSILIUM_MODEL env var)
 consilium deliberate "Add caching" --model gemini/gemini-2.5-pro
 consilium deliberate "Add caching" --model openai/gpt-4o
+
+# Explain a codebase (summary, public API, dependencies, gotchas)
+consilium explain src/consilium/voices.py
+consilium explain src/consilium/ --output json
+
+# Start the web UI (requires the [server] extra) — picks a free port, opens a browser
+consilium serve
+consilium serve --port 9000 --no-browser
 ```
 
 ### Python API
@@ -101,12 +109,15 @@ Requires the `[server]` extra. Runs the three-voice deliberation over HTTP — u
 ```bash
 pip install 'consilium-py[server]'
 
-# Start (default Anthropic/OpenRouter backend)
+# Easiest: consilium serve picks a free port, opens a browser to the HTML UI
 export ANTHROPIC_API_KEY=sk-ant-...
+consilium serve
+
+# Or run uvicorn directly for more control (no auto port/browser handling)
 uvicorn consilium.server:app --port 8123
 
 # Or use claude-cli — no API key, just a Claude subscription
-CONSILIUM_MODEL=claude-cli uvicorn consilium.server:app --port 8123
+CONSILIUM_MODEL=claude-cli consilium serve
 ```
 
 ```bash

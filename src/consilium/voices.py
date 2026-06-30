@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import anthropic
 
@@ -84,6 +84,7 @@ def call_voice(_voice_name: str, system_prompt: str, user_msg: str, model: str) 
 
     if "/" in model:
         import litellm  # noqa: PLC0415
+        from litellm import ModelResponse  # noqa: PLC0415
         # Silence LiteLLM's "Give Feedback / Get Help" + "LiteLLM.Info" stderr
         # footer, which it prints on a transient error even when num_retries
         # recovers the call. Unrecovered errors still propagate.
@@ -99,6 +100,11 @@ def call_voice(_voice_name: str, system_prompt: str, user_msg: str, model: str) 
                 {"role": "user", "content": user_msg},
             ],
         )
+        # litellm.completion() is typed as ModelResponse | CustomStreamWrapper
+        # (overloaded on `stream`); without stream=True it always returns
+        # ModelResponse at runtime. cast() narrows the type without changing
+        # behavior.
+        response = cast(ModelResponse, response)
         return response.choices[0].message.content or ""
 
     response = _get_client().messages.create(

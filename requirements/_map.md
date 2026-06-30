@@ -1,7 +1,7 @@
 ---
-generated: 2026-06-23 00:55
-nodes: 11
-edges: 22
+generated: 2026-06-30 21:20
+nodes: 14
+edges: 25
 ---
 
 # Requirement Map
@@ -16,6 +16,7 @@ graph LR
     CPYBUS_AGG_001["Sequential aggregation — veto cascade, voice extraction, Report assembly<br><small>CPYBUS-AGG-001</small>"]
     CPYBUS_API_001["Public Python API — deliberate()<br><small>CPYBUS-API-001</small>"]
     CPYBUS_CLI_001["CLI interface — deliberate and check commands<br><small>CPYBUS-CLI-001</small>"]
+    CPYBUS_EXPLAIN_001["Codebase explanation — explain_module and the explain CLI command<br><small>CPYBUS-EXPLAIN-001</small>"]
     CPYBUS_SKEPTIC_001["Shared Skeptic challenge<br><small>CPYBUS-SKEPTIC-001</small>"]
     CPYBUS_VOI_001["Voice dispatch — prompt loading, API call, JSON extraction<br><small>CPYBUS-VOI-001</small>"]
   end
@@ -29,6 +30,10 @@ graph LR
     CPYMOD_SEQ_001["Sequential deliberation mode<br><small>CPYMOD-SEQ-001</small>"]
     CPYMOD_TRI_001["Trias deliberation mode — 3 parallel personalities + post-vote Skeptic<br><small>CPYMOD-TRI-001</small>"]
   end
+  subgraph sg_CPYSRV["CPYSRV"]
+    CPYSRV_HTTP_001["HTTP server — POST /deliberate and the / web UI<br><small>CPYSRV-HTTP-001</small>"]
+    CPYSRV_SERVE_001["serve CLI command — local web UI launcher<br><small>CPYSRV-SERVE-001</small>"]
+  end
   CPYBUS_API_001 --> CPYMOD_SEQ_001
   CPYBUS_API_001 --> CPYMOD_DIA_001
   CPYBUS_API_001 --> CPYMOD_TRI_001
@@ -36,8 +41,11 @@ graph LR
   style CPYBUS_AGG_001 stroke-width:3px
   style CPYBUS_API_001 stroke-width:3px
   style CPYBUS_CLI_001 stroke-width:3px
+  style CPYBUS_EXPLAIN_001 stroke-width:3px
   style CPYBUS_SKEPTIC_001 stroke-width:3px
   style CPYBUS_VOI_001 stroke-width:3px
+  style CPYSRV_HTTP_001 stroke-width:3px
+  style CPYSRV_SERVE_001 stroke-width:3px
 ```
 
 ## Requirement-to-Code
@@ -63,6 +71,13 @@ graph LR
   CPYBUS_CLI_001 -->|tested-by| f_tests_test_cli_py_2
   f_tests_test_cli_io_py_4["tests/test_cli_io.py:4"]
   CPYBUS_CLI_001 -->|tested-by| f_tests_test_cli_io_py_4
+  CPYBUS_EXPLAIN_001["Codebase explanation — explain_module and the explain CLI command<br><small>CPYBUS-EXPLAIN-001</small>"]
+  f_src_consilium_cli_py_216["src/consilium/cli.py:216"]
+  CPYBUS_EXPLAIN_001 -->|implements| f_src_consilium_cli_py_216
+  f_src_consilium_explain_py_2["src/consilium/explain.py:2"]
+  CPYBUS_EXPLAIN_001 -->|implements| f_src_consilium_explain_py_2
+  f_tests_test_explain_py_2["tests/test_explain.py:2"]
+  CPYBUS_EXPLAIN_001 -->|tested-by| f_tests_test_explain_py_2
   CPYBUS_SKEPTIC_001["Shared Skeptic challenge<br><small>CPYBUS-SKEPTIC-001</small>"]
   f_src_consilium_skeptic_py_7["src/consilium/skeptic.py:7"]
   CPYBUS_SKEPTIC_001 -->|implements| f_src_consilium_skeptic_py_7
@@ -109,6 +124,16 @@ graph LR
   CPYMOD_TRI_001 -->|implements| f_src_consilium_modes_trias_py_7
   f_tests_test_trias_py_2["tests/test_trias.py:2"]
   CPYMOD_TRI_001 -->|tested-by| f_tests_test_trias_py_2
+  CPYSRV_HTTP_001["HTTP server — POST /deliberate and the / web UI<br><small>CPYSRV-HTTP-001</small>"]
+  f_src_consilium_server_py_8["src/consilium/server.py:8"]
+  CPYSRV_HTTP_001 -->|implements| f_src_consilium_server_py_8
+  f_tests_test_server_py_2["tests/test_server.py:2"]
+  CPYSRV_HTTP_001 -->|tested-by| f_tests_test_server_py_2
+  CPYSRV_SERVE_001["serve CLI command — local web UI launcher<br><small>CPYSRV-SERVE-001</small>"]
+  f_src_consilium_cli_py_69["src/consilium/cli.py:69"]
+  CPYSRV_SERVE_001 -->|implements| f_src_consilium_cli_py_69
+  f_tests_test_cli_py_3["tests/test_cli.py:3"]
+  CPYSRV_SERVE_001 -->|tested-by| f_tests_test_cli_py_3
 ```
 
 ## Dependency Map
@@ -117,13 +142,16 @@ _Area-level coupling: one box per area (N caps), arrow A->B = some capability in
 
 ```mermaid
 graph LR
-  a_CPYBUS["CPYBUS<br><small>5 caps</small>"]
+  a_CPYBUS["CPYBUS<br><small>6 caps</small>"]
   a_CPYEXT["CPYEXT<br><small>3 caps</small>"]
   a_CPYMOD["CPYMOD<br><small>3 caps</small>"]
+  a_CPYSRV["CPYSRV<br><small>2 caps</small>"]
   a_CPYBUS --> a_CPYMOD
   a_CPYEXT --> a_CPYBUS
   a_CPYMOD --> a_CPYBUS
+  a_CPYSRV --> a_CPYBUS
   style a_CPYBUS stroke-width:3px
+  style a_CPYSRV stroke-width:3px
 ```
 
 ## Risk & Unknowns

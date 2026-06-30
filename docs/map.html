@@ -118,7 +118,8 @@
         "CPYBUS-CLI-001",
         "CPYEXT-LG-001",
         "CPYEXT-LTL-001",
-        "CPYEXT-RAG-001"
+        "CPYEXT-RAG-001",
+        "CPYSRV-HTTP-001"
       ],
       "satisfies": [],
       "satisfied_by": [],
@@ -197,6 +198,64 @@
         {
           "role": "tested-by",
           "loc": "tests/test_cli_io.py:4"
+        }
+      ],
+      "test_exempt": null,
+      "milestone": null,
+      "priority": "",
+      "risks": []
+    },
+    {
+      "id": "CPYBUS-EXPLAIN-001",
+      "layer": "bus",
+      "status": "confirmed",
+      "area": "CPYBUS",
+      "title": "Codebase explanation — explain_module and the explain CLI command",
+      "intent": "",
+      "contract": [
+        "`explain_module(path, model)` shall accept either a single `.py` file or a directory; for a directory it shall collect Python files via `rglob(\"*.py\")`, sorted, capped at `_MAX_FILES` (20) files and `_MAX_CHARS` (40,000) combined characters — truncating with a `[truncated — char limit reached]` marker rather than overflowing the model's context window.",
+        "If no Python files are found at `path`, `explain_module` shall return an `ExplainReport` whose `summary` states `No Python files found at <path>.`, without dispatching to `call_voice`.",
+        "Otherwise it shall concatenate each file's source (prefixed with a `# <path>` header) into one user message, load the `explain` system prompt via `load_prompt(\"explain\")`, and dispatch a single `call_voice(\"explain\", system_prompt, combined, model)` call.",
+        "The voice response shall be parsed with `extract_json`; the resulting `ExplainReport` populates `summary`, `public_api`, `dependencies`, `data_flow`, and `gotchas` from the parsed JSON (each defaulting to `[]`/`\"\"` when absent).",
+        "If the voice response is not valid JSON (no `summary` key extracted), `explain_module` shall fall back to using the first 300 characters of the raw response, stripped, as `summary` — never raise on a parse failure.",
+        "`consilium explain <path>` shall call `explain_module(path, model)` and print, in text mode, the summary followed by `Public API` / `Dependencies` / `Data flow` / `Gotchas` sections (each omitted when empty); with `--output json`, it shall print `report.model_dump()` as JSON.",
+        "A provider error raised by `explain_module` (per the CLI's shared `_is_provider_error` check, see CPYBUS-CLI-001) shall surface as a `ClickException`, not a raw traceback; a non-provider exception propagates unchanged."
+      ],
+      "verify": [],
+      "notes": [],
+      "current_impl": [
+        "`src/consilium/explain.py`",
+        "`src/consilium/cli.py` (`explain_cmd`)"
+      ],
+      "acc": [
+        "Given a directory with one `.py` file and a voice response containing valid JSON, when `explain_module` is called, then the returned `ExplainReport.summary` is non-empty and matches the JSON's `summary` field.",
+        "Given a directory with no `.py` files, when `explain_module` is called, then `summary` contains \"No Python files\" and `call_voice` is never invoked.",
+        "Given a voice response that is plain prose (no JSON), when `explain_module` is called, then `summary` equals the prose response.",
+        "Given a directory with more than `_MAX_FILES` Python files, when `explain_module` is called, then the user message sent to `call_voice` contains at most `_MAX_FILES` `# <path>.py` headers.",
+        "Given `consilium explain <file>` with a mocked valid JSON response, when invoked via the CLI, then exit code is 0 and the summary text appears in stdout; with `--output json`, stdout parses as JSON containing a `summary` key."
+      ],
+      "accept": "- Given a directory with one `.py` file and a voice response containing valid JSON, when\n  `explain_module` is called, then the returned `ExplainReport.summary` is non-empty and matches\n  the JSON's `summary` field.\n- Given a directory with no `.py` files, when `explain_module` is called, then `summary` contains\n  \"No Python files\" and `call_voice` is never invoked.\n- Given a voice response that is plain prose (no JSON), when `explain_module` is called, then\n  `summary` equals the prose response.\n- Given a directory with more than `_MAX_FILES` Python files, when `explain_module` is called,\n  then the user message sent to `call_voice` contains at most `_MAX_FILES` `# <path>.py` headers.\n- Given `consilium explain <file>` with a mocked valid JSON response, when invoked via the CLI,\n  then exit code is 0 and the summary text appears in stdout; with `--output json`, stdout parses\n  as JSON containing a `summary` key.",
+      "input": "",
+      "output": "",
+      "desc": "",
+      "deps": [
+        "CPYBUS-VOI-001"
+      ],
+      "used_by": [],
+      "satisfies": [],
+      "satisfied_by": [],
+      "members": [
+        {
+          "role": "implements",
+          "loc": "src/consilium/cli.py:216"
+        },
+        {
+          "role": "implements",
+          "loc": "src/consilium/explain.py:2"
+        },
+        {
+          "role": "tested-by",
+          "loc": "tests/test_explain.py:2"
         }
       ],
       "test_exempt": null,
@@ -289,6 +348,7 @@
       "deps": [],
       "used_by": [
         "CPYBUS-AGG-001",
+        "CPYBUS-EXPLAIN-001",
         "CPYBUS-SKEPTIC-001",
         "CPYEXT-LG-001",
         "CPYEXT-LTL-001",
@@ -677,6 +737,108 @@
       "milestone": null,
       "priority": "",
       "risks": []
+    },
+    {
+      "id": "CPYSRV-HTTP-001",
+      "layer": "bus",
+      "status": "confirmed",
+      "area": "CPYSRV",
+      "title": "HTTP server — POST /deliberate and the / web UI",
+      "intent": "",
+      "contract": [
+        "Importing `consilium.server` shall raise `ImportError` with a `pip install 'consilium-py[server]'` hint when `fastapi` is not installed, rather than a raw `ModuleNotFoundError`.",
+        "`GET /` shall return an `HTMLResponse` containing a self-contained page (inline CSS/JS, no external assets) that posts to `/deliberate` and renders the verdict, confidence, mode, recommendation, `chosen_sketch` (when present), and Skeptic concerns (when `skeptic.can_object`).",
+        "`POST /deliberate` shall accept a JSON body `{proposal: str, context: str = \"\", mode: str = \"sequential\", model: str = \"\"}` and call `deliberate(proposal=..., context=..., mode=...)`, forwarding `model` only when non-empty (an empty `model` lets `deliberate()` fall back to its own default / `CONSILIUM_MODEL`).",
+        "`POST /deliberate` shall respond with the full `consilium.models.Report` serialized as JSON (FastAPI `response_model=Report`), status 200 on success.",
+        "The app shall be importable and constructible (`from consilium.server import app`) without any network call — `deliberate()` is invoked only when a request hits `/deliberate`."
+      ],
+      "verify": [],
+      "notes": [],
+      "current_impl": [
+        "`src/consilium/server.py`"
+      ],
+      "acc": [
+        "Given `fastapi` is installed and voices mocked to a GO verdict, when `POST /deliberate` is called with `{\"proposal\": \"Add health check\"}`, then the response is 200 and the body contains `verdict`, `confidence`, `recommendation`, and a `voices` list.",
+        "Given a request with `context` and `mode` set, when `POST /deliberate` is called, then the response is 200 and `verdict` is present in the body.",
+        "Given `GET /`, when called, then the response is an HTML page (content-type `text/html`)."
+      ],
+      "accept": "- Given `fastapi` is installed and voices mocked to a GO verdict, when `POST /deliberate` is\n  called with `{\"proposal\": \"Add health check\"}`, then the response is 200 and the body contains\n  `verdict`, `confidence`, `recommendation`, and a `voices` list.\n- Given a request with `context` and `mode` set, when `POST /deliberate` is called, then the\n  response is 200 and `verdict` is present in the body.\n- Given `GET /`, when called, then the response is an HTML page (content-type `text/html`).",
+      "input": "",
+      "output": "",
+      "desc": "",
+      "deps": [
+        "CPYBUS-API-001"
+      ],
+      "used_by": [
+        "CPYSRV-SERVE-001"
+      ],
+      "satisfies": [],
+      "satisfied_by": [],
+      "members": [
+        {
+          "role": "implements",
+          "loc": "src/consilium/server.py:8"
+        },
+        {
+          "role": "tested-by",
+          "loc": "tests/test_server.py:2"
+        }
+      ],
+      "test_exempt": null,
+      "milestone": null,
+      "priority": "",
+      "risks": []
+    },
+    {
+      "id": "CPYSRV-SERVE-001",
+      "layer": "bus",
+      "status": "confirmed",
+      "area": "CPYSRV",
+      "title": "serve CLI command — local web UI launcher",
+      "intent": "",
+      "contract": [
+        "`consilium serve` shall require the `[server]` extra; if `import uvicorn` fails, it shall raise a `ClickException` with a `pip install 'consilium-py[server]'` hint rather than a raw `ModuleNotFoundError`.",
+        "`--model` shall default to the CLI's default model and read the `CONSILIUM_MODEL` env var (Click `envvar=`); before starting the server, the resolved `model` value shall be written back into `os.environ[\"CONSILIUM_MODEL\"]` so that `deliberate()` calls made by the running server (which has no access to the CLI's local `model` variable) pick it up.",
+        "`--port` (default 8124) shall be probed for availability; if busy, the command shall print a notice and retry the next port upward (`port + 1`) until a free one is found, before binding.",
+        "Unless `--no-browser` is passed, the command shall open the default web browser at the chosen `http://<host>:<port>/` URL automatically, on a daemon thread, after a short delay — so opening the browser never blocks or fails the act of starting the server.",
+        "The command shall call `uvicorn.run(\"consilium.server:app\", host=host, port=port, log_level=\"warning\")`, blocking until interrupted (e.g. Ctrl+C)."
+      ],
+      "verify": [],
+      "notes": [],
+      "current_impl": [
+        "`src/consilium/cli.py` (`serve_cmd`)"
+      ],
+      "acc": [
+        "Given `uvicorn` is not installed, when `consilium serve` is invoked, then it exits non-zero with a `[server]` extra install hint and `uvicorn.run` is never called.",
+        "Given `--model openai/gpt-4o`, when `consilium serve` is invoked, then `os.environ[\"CONSILIUM_MODEL\"]` is set to `\"openai/gpt-4o\"` before `uvicorn.run` is called.",
+        "Given the requested port is reported busy, when `consilium serve` is invoked, then it retries on `port + 1` until a free port is found, and `uvicorn.run` is called with that free port.",
+        "Given `--no-browser`, when `consilium serve` is invoked, then `webbrowser.open` is never called.",
+        "Given no `--no-browser`, when `consilium serve` is invoked, then a browser-opening thread is started targeting the chosen `http://<host>:<port>/` URL."
+      ],
+      "accept": "- Given `uvicorn` is not installed, when `consilium serve` is invoked, then it exits non-zero\n  with a `[server]` extra install hint and `uvicorn.run` is never called.\n- Given `--model openai/gpt-4o`, when `consilium serve` is invoked, then `os.environ[\"CONSILIUM_MODEL\"]`\n  is set to `\"openai/gpt-4o\"` before `uvicorn.run` is called.\n- Given the requested port is reported busy, when `consilium serve` is invoked, then it retries\n  on `port + 1` until a free port is found, and `uvicorn.run` is called with that free port.\n- Given `--no-browser`, when `consilium serve` is invoked, then `webbrowser.open` is never called.\n- Given no `--no-browser`, when `consilium serve` is invoked, then a browser-opening thread is\n  started targeting the chosen `http://<host>:<port>/` URL.",
+      "input": "",
+      "output": "",
+      "desc": "",
+      "deps": [
+        "CPYSRV-HTTP-001"
+      ],
+      "used_by": [],
+      "satisfies": [],
+      "satisfied_by": [],
+      "members": [
+        {
+          "role": "implements",
+          "loc": "src/consilium/cli.py:69"
+        },
+        {
+          "role": "tested-by",
+          "loc": "tests/test_cli.py:3"
+        }
+      ],
+      "test_exempt": null,
+      "milestone": null,
+      "priority": "",
+      "risks": []
     }
   ],
   "edges": [
@@ -699,6 +861,10 @@
     [
       "CPYBUS-CLI-001",
       "CPYBUS-API-001"
+    ],
+    [
+      "CPYBUS-EXPLAIN-001",
+      "CPYBUS-VOI-001"
     ],
     [
       "CPYBUS-SKEPTIC-001",
@@ -767,6 +933,14 @@
     [
       "CPYMOD-TRI-001",
       "CPYBUS-SKEPTIC-001"
+    ],
+    [
+      "CPYSRV-HTTP-001",
+      "CPYBUS-API-001"
+    ],
+    [
+      "CPYSRV-SERVE-001",
+      "CPYSRV-HTTP-001"
     ]
   ],
   "todos": []
