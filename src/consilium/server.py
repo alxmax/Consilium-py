@@ -19,10 +19,12 @@ except ImportError:
 import logging
 from contextlib import asynccontextmanager
 
+from fastapi import HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 from consilium import deliberate
+from consilium.errors import is_provider_error, provider_error_message
 from consilium.models import Report
 
 logger = logging.getLogger("consilium.server")
@@ -46,6 +48,8 @@ class DeliberateRequest(BaseModel):
     context: str = ""
     mode: str = "sequential"
     model: str = ""
+    rag: bool = False
+    skeptic_can_override: bool = False
 
 
 _UI = """<!DOCTYPE html>
@@ -221,7 +225,21 @@ def ui() -> str:
 
 @app.post("/deliberate", response_model=Report)
 def run_deliberate(req: DeliberateRequest) -> Report:
-    kwargs: dict = dict(proposal=req.proposal, context=req.context, mode=req.mode)
+    kwargs: dict = dict(
+        proposal=req.proposal, context=req.context, mode=req.mode,
+        rag=req.rag, skeptic_can_override=req.skeptic_can_override,
+    )
     if req.model:
         kwargs["model"] = req.model
-    return deliberate(**kwargs)
+    try:
+        return deliberate(**kwargs)
+    except Exception as e:  # noqa: BLE001
+        if not is_provider_error(e):
+            raise
+        # 502, not the provider's own status code: a 401/403/404 from the
+        # upstream provider is consilium-py's credential/config problem, not
+        # the HTTP caller's — echoing it back would wrongly imply the caller's
+        # request to *this* API was invalid.
+        raise HTTPException(
+            status_code=502, detail=provider_error_message(e, req.model or None)
+        ) from None

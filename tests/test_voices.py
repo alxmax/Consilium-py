@@ -26,6 +26,25 @@ class TestExtractJson(unittest.TestCase):
     def test_nested_json(self):
         self.assertEqual(self.fn('{"outer": {"inner": 42}}'), {"outer": {"inner": 42}})
 
+    def test_brace_in_string_value_parses_correctly(self):
+        """A stray '}' inside a string value must not truncate the parse (regression)."""
+        text = '{"options": [{"id": "opt1", "sketch": "end of fn }", "rationale": "ok"}], "preferred": "opt1"}'
+        result = self.fn(text)
+        self.assertEqual(result["preferred"], "opt1")
+        self.assertEqual(result["options"][0]["sketch"], "end of fn }")
+
+    def test_multiple_braces_in_string_value(self):
+        """Pseudocode with balanced braces in a string must still parse the enclosing object."""
+        text = '{"sketch": "if (x) { return y; } else { return z; }", "id": "opt1"}'
+        self.assertEqual(
+            self.fn(text),
+            {"sketch": "if (x) { return y; } else { return z; }", "id": "opt1"},
+        )
+
+    def test_fence_path_unaffected_by_brace_in_string(self):
+        text = '```json\n{"sketch": "a { b }"}\n```'
+        self.assertEqual(self.fn(text), {"sketch": "a { b }"})
+
 
 class TestCallVoiceAnthropic(unittest.TestCase):
     def test_returns_first_text_block(self):

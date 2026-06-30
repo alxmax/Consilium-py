@@ -8,42 +8,20 @@ import subprocess
 import click
 
 from consilium import deliberate
+from consilium.errors import is_provider_error, provider_error_message
 from consilium.explain import explain_module
 from consilium.models import Report
 
 _DEFAULT_MODEL = "openrouter/google/gemini-2.0-flash-001"
 
 
-def _is_provider_error(e: BaseException) -> bool:
-    root = (type(e).__module__ or "").split(".")[0]
-    if root in ("litellm", "openai"):
-        return True
-    try:
-        import anthropic  # noqa: PLC0415
-    except ImportError:
-        return False
-    return isinstance(e, anthropic.APIError)
-
-
 def _deliberate_or_exit(proposal: str, **kwargs) -> Report:
     try:
         return deliberate(proposal, **kwargs)
     except Exception as e:  # noqa: BLE001
-        if not _is_provider_error(e):
+        if not is_provider_error(e):
             raise
-        status = getattr(e, "status_code", None)
-        model = kwargs.get("model") or "the configured model"
-        if status in (401, 403, 404):
-            kind = "not found or retired" if status == 404 else "rejected (auth / permission)"
-            raise click.ClickException(
-                f"Model {model!r} {kind} (HTTP {status}) — not transient. "
-                "Set CONSILIUM_MODEL=claude-cli to use your local Claude subscription."
-            ) from None
-        detail = f" (HTTP {status})" if status else ""
-        raise click.ClickException(
-            f"Model provider unavailable{detail} — try again shortly, or set "
-            "CONSILIUM_MODEL=claude-cli to use your local Claude subscription."
-        ) from None
+        raise click.ClickException(provider_error_message(e, kwargs.get("model"))) from None
 
 
 @click.group(invoke_without_command=True)
@@ -229,7 +207,7 @@ def explain_cmd(path: str, model: str, output: str) -> None:
     try:
         report = explain_module(path, model)
     except Exception as e:  # noqa: BLE001
-        if not _is_provider_error(e):
+        if not is_provider_error(e):
             raise
         raise click.ClickException(str(e)) from None
 
