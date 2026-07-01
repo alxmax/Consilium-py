@@ -14,9 +14,10 @@ A single adversarial pass over a chosen approach, reused by Dialectic (post-Sequ
 
 - `parse_skeptic(skeptic_out, raw_text)` shall map a raw Skeptic JSON output to `(SkepticObjection, VoiceOutput)`:
   - `can_object` coerced to `bool`; `objection.concrete_concerns` → list; `objection.failure_mode`/`objection.addressable` → optional.
+  - **Validation gate** (per `skeptic.md`): a `can_object=true` objection with fewer than 2 `concrete_concerns` AND no `quoted_scenario` is discarded — `can_object` flips to `false`, the objection fields are cleared, and a discard note is appended to `notes`. A vague objection can never downgrade a verdict.
   - The `VoiceOutput` vote is `GO` when `can_object` is false, `STOP` when `addressable="unaddressable"`, else `MODIFY`.
   - Score: `0.9` (no objection), `0.5` (objection), `0.2` (unaddressable objection).
-- `challenge(chosen_id, inp)` shall build a Skeptic input containing only the chosen id + summary (the proposal), the proposal as `success_criterion`, the optional context, then call the `skeptic` voice once and return `parse_skeptic(...)`.
+- `challenge(chosen_id, inp, *, summary=None, sketch=None, rationale=None)` shall build a Skeptic input containing the chosen candidate's id, summary, sketch, and rationale when provided (falling back to the proposal / a generic rationale), the proposal as `success_criterion`, the optional context, then call the `skeptic` voice once and return `parse_skeptic(...)`. Callers (Dialectic, Trias) pass the chosen candidate's fields from the aggregated `Report`.
 - The Skeptic dispatch shall use `call_voice` / `load_prompt` from `voices.py` — no separate model client.
 
 ## WHAT — Verify intent

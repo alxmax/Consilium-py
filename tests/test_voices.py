@@ -46,6 +46,29 @@ class TestExtractJson(unittest.TestCase):
         self.assertEqual(self.fn(text), {"sketch": "a { b }"})
 
 
+class TestLoadPrompt(unittest.TestCase):
+    """Regression (audit 2026-07-01): prompts lived at the repo root, outside
+    the wheel — every non-editable install crashed on the first load_prompt().
+    They must resolve inside the consilium package via importlib.resources."""
+
+    _ALL_PROMPTS = [
+        "conservator", "control", "generator", "skeptic", "explain",
+        "pioneer_lens", "architect_lens", "steward_lens",
+    ]
+
+    def test_prompts_dir_inside_package(self):
+        from consilium.voices import PROMPTS_DIR
+        normalized = str(PROMPTS_DIR).replace("\\", "/")
+        self.assertTrue(normalized.endswith("consilium/prompts/voices"), normalized)
+
+    def test_all_prompts_load(self):
+        from consilium.voices import load_prompt
+        for name in self._ALL_PROMPTS:
+            with self.subTest(prompt=name):
+                text = load_prompt(name)
+                self.assertTrue(text.strip(), f"{name}.md is empty")
+
+
 class TestCallVoiceAnthropic(unittest.TestCase):
     def test_returns_first_text_block(self):
         from consilium.voices import call_voice

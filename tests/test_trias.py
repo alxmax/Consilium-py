@@ -33,14 +33,22 @@ SKEPTIC_UNADDRESSABLE = json.dumps({
 })
 
 
-def _report(chosen: str | None, verdict: str = "GO", confidence: float = 1.0) -> Report:
+def _report(
+    chosen: str | None,
+    verdict: str = "GO",
+    confidence: float = 1.0,
+    reason: str | None = None,
+    **chosen_fields: str,
+) -> Report:
     return Report(
         verdict=verdict,  # type: ignore[arg-type]
         confidence=confidence,
         recommendation=f"ok, chosen={chosen}",
         voices=[VoiceOutput(voice="conservator", vote="GO", reasoning="ok", score=0.9)],
         chosen=chosen,
+        reason=reason,
         mode="sequential",
+        **chosen_fields,  # type: ignore[arg-type]
     )
 
 
@@ -54,10 +62,11 @@ class TestRunTrias(unittest.TestCase):
         from consilium.models import DeliberationInput
         from consilium.modes.trias import run_trias
 
-        def mock_personality(name: str, inp: object) -> Report:
+        def mock_personality(name: str, inp: object, shared_gen: str) -> Report:
             return personality_returns[name]
 
-        with patch("consilium.modes.trias._run_personality", side_effect=mock_personality), \
+        with patch("consilium.modes.trias._neutral_generator", return_value="NEUTRAL GEN OUTPUT"), \
+             patch("consilium.modes.trias._run_personality", side_effect=mock_personality), \
              patch("consilium.skeptic.call_voice", return_value=skeptic_text):
             return run_trias(
                 DeliberationInput(proposal="Add health check"),
@@ -132,6 +141,79 @@ class TestRunTrias(unittest.TestCase):
         self.assertEqual(r.verdict, "BLOCK")
         self.assertAlmostEqual(r.confidence, 0.1)
         self.assertEqual(r.chosen, "a")  # chosen unchanged even when blocked
+
+    def test_categorical_block_propagates(self):
+        """Regression (audit 2026-07-01 bug #5): a personality BLOCK used to
+        count as a mere vote abstention — a not_a_proposal input yielded
+        ESCALATE 'no majority' instead of the BLOCK that deliberate() converts
+        to ANSWER."""
+        block = _report(None, verdict="BLOCK", confidence=0.1, reason="not_a_proposal")
+        r = self._run({"pioneer": block, "architect": block, "steward": block})
+        self.assertEqual(r.verdict, "BLOCK")
+        self.assertEqual(r.reason, "not_a_proposal")
+        self.assertEqual(r.mode, "trias")
+
+    def test_irreversibility_block_not_outvoted(self):
+        """A single personality's irreversibility veto is absolute — two GO
+        votes must not override the safety layer."""
+        block = _report(None, verdict="BLOCK", confidence=0.1, reason="irreversibility_no_consent")
+        r = self._run({"pioneer": _report("a"), "architect": _report("a"), "steward": block})
+        self.assertEqual(r.verdict, "BLOCK")
+        self.assertEqual(r.reason, "irreversibility_no_consent")
+
+    def test_winner_chosen_fields_propagate(self):
+        """Regression (audit 2026-07-01): trias rebuilt the Report without the
+        winner's chosen_summary/sketch/rationale, hiding 'How to implement'."""
+        winner = _report(
+            "a",
+            chosen_summary="Add a /health endpoint",
+            chosen_sketch="GET /health returns 200",
+            chosen_rationale="Smallest change",
+        )
+        r = self._run({"pioneer": winner, "architect": winner, "steward": winner})
+        self.assertEqual(r.chosen_summary, "Add a /health endpoint")
+        self.assertEqual(r.chosen_sketch, "GET /health returns 200")
+        self.assertEqual(r.chosen_rationale, "Smallest change")
+
+    def test_skeptic_receives_winner_candidate_details(self):
+        """Bug #6: the Skeptic must challenge the actual winning candidate,
+        not just its opaque id."""
+        winner = _report("a", chosen_summary="SUMMARY_MARKER", chosen_sketch="SKETCH_MARKER")
+        from consilium.models import DeliberationInput
+        from consilium.modes.trias import run_trias
+
+        with patch("consilium.modes.trias._neutral_generator", return_value=""), \
+             patch("consilium.modes.trias._run_personality",
+                   side_effect=lambda *_a, **_kw: winner), \
+             patch("consilium.skeptic.call_voice", return_value=SKEPTIC_NO_OBJECTION) as mock_call:
+            run_trias(DeliberationInput(proposal="Add health check"))
+
+        user_msg = mock_call.call_args.args[2]
+        self.assertIn("SUMMARY_MARKER", user_msg)
+        self.assertIn("SKETCH_MARKER", user_msg)
+
+
+class TestSharedCandidates(unittest.TestCase):
+    def test_personality_generator_receives_shared_candidates(self):
+        """Bug #4: candidate ids were only comparable across personalities by
+        accident. Each personality's Generator must receive the shared neutral
+        candidate set and select among those exact ids."""
+        from consilium.models import DeliberationInput
+        from consilium.modes.trias import _run_personality
+
+        calls: list[tuple[str, str]] = []
+
+        def mock_cv(voice: str, _sys: str, user: str, _model: str) -> str:
+            calls.append((voice, user))
+            return '{"x": 1}'  # parseable; content irrelevant here
+
+        with patch("consilium.modes.trias.call_voice", side_effect=mock_cv):
+            _run_personality("pioneer", DeliberationInput(proposal="x"), "SHARED_CANDIDATES_BLOCK")
+
+        gen_voice, gen_msg = calls[0]
+        self.assertEqual(gen_voice, "generator")
+        self.assertIn("SHARED_CANDIDATES_BLOCK", gen_msg)
+        self.assertIn("do not invent new ids", gen_msg.lower())
 
 
 if __name__ == "__main__":

@@ -8,17 +8,18 @@ depends_on: [CPYBUS-VOI-001, CPYBUS-AGG-001, CPYBUS-SKEPTIC-001]
 
 # Trias deliberation mode — 3 parallel personalities + post-vote Skeptic
 
-Dispatches three personality-biased Sequential deliberations in parallel (Pioneer, Architect, Steward). Each personality runs with its lens prompt prepended to every voice system prompt, biasing perception without changing the voice's role. Results are aggregated by democratic majority vote; on a decisive vote, one post-vote Skeptic then challenges the winner.
+Dispatches three personality-biased Sequential deliberations in parallel (Pioneer, Architect, Steward) over a **shared candidate set** produced by one neutral (lens-free) Generator run. Each personality runs with its lens prompt prepended to every voice system prompt, biasing perception without changing the voice's role; its Generator selects `preferred` among the shared candidate ids, so votes are semantically comparable. Results are aggregated by democratic majority vote; on a decisive vote, one post-vote Skeptic then challenges the winner.
 
 ## WHAT — Contract
 
-- `run_trias(inp, skeptic_can_override=False)` shall dispatch `_run_personality` for each of the three personalities concurrently via `asyncio.to_thread` + `asyncio.gather`.
-- Each personality runs its internal Sequential pipeline in Generator-first order (Generator → Conservator → Control), with its lens (`prompts/voices/{name}_lens.md`) prepended to each voice system prompt, separated from the core prompt by `\n\n---\n\n`.
+- `run_trias(inp, skeptic_can_override=False)` shall first run one neutral Generator (`_neutral_generator`) to produce the shared candidate set, then dispatch `_run_personality(name, inp, shared_gen)` for each of the three personalities concurrently via `asyncio.to_thread` + `asyncio.gather`.
+- Each personality runs its internal Sequential pipeline in Generator-first order (Generator → Conservator → Control), with its lens (`prompts/voices/{name}_lens.md`) prepended to each voice system prompt, separated from the core prompt by `\n\n---\n\n`. The personality's Generator message includes the shared candidates with the instruction to keep the exact ids and select `preferred` among them.
+- **Categorical veto propagation.** If any personality's `Report` has `verdict == "BLOCK"` (glossary_fail, irreversibility, not_a_proposal, voice_unparseable), `run_trias` shall return that report (with `mode="trias"`) without voting — safety vetoes are not out-votable, and the propagated `reason` lets `deliberate()` convert `not_a_proposal` to `ANSWER`.
 - After all three complete, the function shall perform a majority vote over the three `chosen` values:
   - If ≥ 2 personalities chose the same candidate → that candidate wins.
   - Otherwise → no winner.
 - Vote confidence shall follow: `3-0` → 0.95, `2-1` → 0.75, `2-0` → 0.70. No majority → verdict `ESCALATE`, confidence 0.30.
-- When a winner exists, the verdict and recommendation are taken from the winning personality's `Report`.
+- When a winner exists, the verdict and recommendation are taken from the winning personality's `Report`, and its `chosen_summary`/`chosen_sketch`/`chosen_rationale` are propagated to the trias `Report`.
 - **Post-vote Skeptic.** When (and only when) a winner exists, one Skeptic (`CPYBUS-SKEPTIC-001`) shall challenge the winning candidate. Its objection is attached as `report.skeptic` and a `voice="skeptic"` `VoiceOutput` is appended.
   - **Advisory** (`skeptic_can_override=False`, default): the vote verdict, confidence, and `chosen` are unchanged regardless of the objection; an advisory note may be appended to the recommendation.
   - **Override** (`skeptic_can_override=True`): a `can_object=True` objection downgrades the verdict — `in_place`+`GO`→`MODIFY`; `requires_redesign`→`MODIFY`, confidence ≤ 0.5; `unaddressable`→`BLOCK`, confidence 0.1. `chosen` is never changed.

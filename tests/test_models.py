@@ -20,5 +20,18 @@ class TestDeadCodeRemoved(unittest.TestCase):
         self.assertEqual(inp.model, "openrouter/google/gemini-2.0-flash-001")
 
 
+class TestDefaultModelSingleSource(unittest.TestCase):
+    """Audit 2026-07-01 minor: the default model string was duplicated in
+    models.py, __init__.py, and cli.py — one constant, three consumers."""
+
+    def test_single_constant(self):
+        import consilium
+        import consilium.cli as cli
+        from consilium.models import DEFAULT_MODEL, DeliberationInput
+        self.assertEqual(DeliberationInput(proposal="x").model, DEFAULT_MODEL)
+        self.assertIs(consilium._DEFAULT_MODEL, DEFAULT_MODEL)
+        self.assertIs(cli._DEFAULT_MODEL, DEFAULT_MODEL)
+
+
 if __name__ == "__main__":
     unittest.main()

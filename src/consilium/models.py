@@ -1,6 +1,10 @@
 from pydantic import BaseModel
 from typing import Literal
 
+# Single source for the default model string — consumed by DeliberationInput,
+# deliberate(), and the CLI option defaults.
+DEFAULT_MODEL = "openrouter/google/gemini-2.0-flash-001"
+
 
 class ExplainReport(BaseModel):
     summary: str
@@ -13,7 +17,7 @@ class ExplainReport(BaseModel):
 class DeliberationInput(BaseModel):
     proposal: str
     context: str = ""
-    model: str = "openrouter/google/gemini-2.0-flash-001"
+    model: str = DEFAULT_MODEL
 
 
 class VoiceOutput(BaseModel):

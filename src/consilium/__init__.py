@@ -7,11 +7,11 @@ import os
 from consilium.modes.dialectic import run_dialectic
 from consilium.modes.sequential import run_sequential
 from consilium.modes.trias import run_trias
+from consilium.models import DEFAULT_MODEL as _DEFAULT_MODEL
 from consilium.models import DeliberationInput, Report
 from consilium.voices import plain_answer, short_response
 
 _SUPPORTED_MODES = ("sequential", "dialectic", "trias", "langgraph")
-_DEFAULT_MODEL = "openrouter/google/gemini-2.0-flash-001"
 
 
 def deliberate(
@@ -37,7 +37,7 @@ def deliberate(
     elif mode == "dialectic":
         report = run_dialectic(inp, skeptic_can_override=skeptic_can_override)
     elif mode == "trias":
-        report = run_trias(inp)
+        report = run_trias(inp, skeptic_can_override=skeptic_can_override)
     elif mode == "langgraph":
         from consilium.modes.langgraph_mode import run_langgraph  # noqa: PLC0415
         report = run_langgraph(inp)

@@ -5,12 +5,14 @@ from __future__ import annotations
 
 import json
 import re
-from pathlib import Path
+from importlib.resources import files
 from typing import Any, cast
 
 import anthropic
 
-PROMPTS_DIR = Path(__file__).parent.parent.parent / "prompts" / "voices"
+# Prompts ship inside the package (src/consilium/prompts/) so a wheel install
+# works; the old repo-root prompts/ path only existed in editable installs.
+PROMPTS_DIR = files("consilium") / "prompts" / "voices"
 
 _client: anthropic.Anthropic | None = None
 

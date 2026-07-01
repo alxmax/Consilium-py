@@ -42,6 +42,14 @@ class TestDeliberateModeRouting(unittest.TestCase):
         mock.assert_called_once()
         self.assertEqual(report.mode, "trias")
 
+    def test_trias_forwards_skeptic_override(self):
+        """Regression (audit 2026-07-01): --skeptic-can-override was silently
+        ignored in trias mode — deliberate() never forwarded the flag."""
+        from consilium import deliberate
+        with patch("consilium.run_trias", return_value=_go_report("trias")) as mock:
+            deliberate("Add health check", mode="trias", skeptic_can_override=True)
+        self.assertTrue(mock.call_args.kwargs.get("skeptic_can_override"))
+
     @unittest.skipUnless(_LANGGRAPH_AVAILABLE, "langgraph not installed")
     def test_langgraph_mode(self):
         from consilium import deliberate
@@ -119,6 +127,19 @@ class TestNonDeliberationAnswer(unittest.TestCase):
         self.assertEqual(report.recommendation, "Hello! How can I help?")
         self.assertEqual(report.voices, [])
         pa.assert_called_once()
+
+    def test_trias_not_a_proposal_becomes_answer(self):
+        """Bug #5 (audit 2026-07-01): trias now propagates the personality
+        BLOCK reason, so chit-chat converts to ANSWER like in sequential."""
+        from consilium import deliberate
+        block = Report(
+            verdict="BLOCK", confidence=0.1, recommendation="blocked",
+            voices=[], reason="not_a_proposal", mode="trias",
+        )
+        with patch("consilium.run_trias", return_value=block), \
+                patch("consilium.plain_answer", return_value="Hello!"):
+            report = deliberate("hi", mode="trias")
+        self.assertEqual(report.verdict, "ANSWER")
 
     def test_normal_verdict_not_converted(self):
         """A normal verdict is returned unchanged; plain_answer is not called."""

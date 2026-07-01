@@ -32,15 +32,16 @@ consilium index                          # rebuild RAG index from ~/.consilium/r
 
 ### Core pipeline
 
-Every deliberation passes through three AI voices in sequence, then the aggregator produces a `Report`:
+Every deliberation passes through three AI voices in sequence (Generator first, blind to risk framing — anti-anchoring), then the aggregator produces a `Report`:
 
-1. **Conservator** (`prompts/voices/conservator.md`) — risk, reversibility, regression scores
-2. **Generator** (`prompts/voices/generator.md`) — proposes 3–5 approaches with trade-offs; selects `preferred`
-3. **Control** (`prompts/voices/control.md`) — audits for glossary compliance and cross-voice disagreements
+1. **Generator** (`src/consilium/prompts/voices/generator.md`) — proposes 3–5 approaches with trade-offs; selects `preferred`
+2. **Conservator** (`src/consilium/prompts/voices/conservator.md`) — risk, reversibility, regression scores on the Generator's candidates
+3. **Control** (`src/consilium/prompts/voices/control.md`) — audits for glossary compliance and cross-voice disagreements
 
-Each voice is called via `voices.call_voice()`, which routes to Anthropic SDK or LiteLLM based on whether the model string contains `/` (e.g. `openai/gpt-4o`). Prompts are `.md` files loaded from `prompts/voices/` at call time.
+Each voice is called via `voices.call_voice()`, which routes to Anthropic SDK or LiteLLM based on whether the model string contains `/` (e.g. `openai/gpt-4o`). Prompts are `.md` files that ship inside the package (`src/consilium/prompts/voices/`, loaded via `importlib.resources` at call time).
 
 The aggregator (`aggregator.py:aggregate_sequential`) applies a veto cascade:
+- any voice output unparseable (`extract_json` → `{}`) → `BLOCK` with reason `voice_unparseable`
 - `glossary_fail` → `BLOCK`
 - any `irreversibility_flag` from Conservator → `BLOCK`
 - substantial disagreements → `MODIFY`/`ESCALATE`
@@ -50,9 +51,9 @@ The aggregator (`aggregator.py:aggregate_sequential`) applies a veto cascade:
 
 | Mode | What it does |
 |---|---|
-| `sequential` | Single chain: Conservator → Generator → Control |
+| `sequential` | Single chain: Generator → Conservator → Control |
 | `dialectic` | Sequential + 4th **Skeptic** voice challenging the chosen candidate; `--skeptic-can-override` lets it downgrade the verdict |
-| `trias` | 3 parallel personalities (Pioneer, Architect, Steward) each run a full sequential deliberation; democratic majority vote decides |
+| `trias` | 1 neutral Generator produces a shared candidate set, then 3 parallel personalities (Pioneer, Architect, Steward) each run a full sequential deliberation over it; democratic majority vote decides. A categorical BLOCK from any personality propagates (vetoes are not out-votable) |
 | `langgraph` | Same sequential pipeline expressed as a LangGraph `StateGraph`; requires `[langgraph]` extra |
 
 ### Public surface

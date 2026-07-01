@@ -16,7 +16,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pyright"]
+dev = ["pyright", "pytest"]
 server = ["fastapi>=0.100", "uvicorn>=0.20"]
 rag = ["chromadb>=0.4,<0.6"]
 langgraph = ["langgraph>=0.2,<0.3", "langchain-core>=0.2,<0.3"]

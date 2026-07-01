@@ -16,7 +16,7 @@ NO_OBJECTION = {
 IN_PLACE = {
     "can_object": True,
     "objection": {
-        "concrete_concerns": ["Missing input validation"],
+        "concrete_concerns": ["Missing input validation", "No rate limiting configured"],
         "failure_mode": "correctness",
         "addressable": "in_place",
     },
@@ -26,7 +26,7 @@ IN_PLACE = {
 UNADDRESSABLE = {
     "can_object": True,
     "objection": {
-        "concrete_concerns": ["Cannot be rolled back after deploy"],
+        "concrete_concerns": ["Cannot be rolled back after deploy", "Violates data-at-rest compliance"],
         "failure_mode": "correctness",
         "addressable": "unaddressable",
     },
@@ -57,7 +57,43 @@ class TestParseSkeptic(unittest.TestCase):
         self.assertEqual(sk.addressable, "in_place")
         self.assertEqual(voice.vote, "MODIFY")
         self.assertAlmostEqual(voice.score, 0.5)
-        self.assertEqual(sk.concrete_concerns, ["Missing input validation"])
+        self.assertEqual(sk.concrete_concerns, ["Missing input validation", "No rate limiting configured"])
+
+
+class TestValidationGate(unittest.TestCase):
+    """skeptic.md validation gate (audit 2026-07-01 bug #7): can_object with
+    fewer than 2 concrete_concerns AND no quoted_scenario is discarded — the
+    chosen ships unchallenged instead of a vague objection downgrading it."""
+
+    def test_insufficient_evidence_discarded(self):
+        vague = {
+            "can_object": True,
+            "objection": {"concrete_concerns": ["might break"], "failure_mode": "correctness",
+                          "addressable": "unaddressable"},
+            "notes": "feels risky",
+        }
+        sk, voice = parse_skeptic(vague, raw_text="vague")
+        self.assertFalse(sk.can_object)
+        self.assertIsNone(sk.addressable)
+        self.assertEqual(voice.vote, "GO")
+        self.assertIn("discarded", sk.notes)
+
+    def test_one_concern_with_quoted_scenario_kept(self):
+        with_scenario = {
+            "can_object": True,
+            "objection": {"concrete_concerns": ["Empty payload crashes handler"],
+                          "quoted_scenario": "POST /health with empty body returns 500",
+                          "failure_mode": "correctness", "addressable": "in_place"},
+            "notes": "",
+        }
+        sk, voice = parse_skeptic(with_scenario, raw_text="ok")
+        self.assertTrue(sk.can_object)
+        self.assertEqual(voice.vote, "MODIFY")
+
+    def test_two_concerns_no_scenario_kept(self):
+        sk, voice = parse_skeptic(IN_PLACE, raw_text="ok")
+        self.assertTrue(sk.can_object)
+        self.assertEqual(voice.vote, "MODIFY")
 
 
 class TestChallenge(unittest.TestCase):
@@ -80,6 +116,26 @@ class TestChallenge(unittest.TestCase):
         user_msg = mock_call.call_args.args[2]
         self.assertIn("approach_b", user_msg)
         self.assertIn("Add rate limiting", user_msg)
+
+    def test_candidate_details_forwarded(self):
+        """Regression (audit 2026-07-01 bug #6): the Skeptic prompt promises
+        the chosen candidate's summary/sketch/rationale, but challenge() sent
+        the raw proposal instead — the Skeptic critiqued the wrong thing."""
+        with patch("consilium.skeptic.call_voice", return_value=json.dumps(NO_OBJECTION)) as mock_call, \
+             patch("consilium.skeptic.load_prompt", return_value="SKEPTIC PROMPT"):
+            challenge(
+                "approach_a", DeliberationInput(proposal="Add health check"),
+                summary="Add a /health endpoint",
+                sketch="GET /health returns 200 + version JSON",
+                rationale="Smallest change satisfying readiness",
+            )
+
+        user_msg = mock_call.call_args.args[2]
+        self.assertIn("Add a /health endpoint", user_msg)
+        self.assertIn("GET /health returns 200", user_msg)
+        self.assertIn("Smallest change satisfying readiness", user_msg)
+        # success_criterion stays the proposal (the goal), not the candidate.
+        self.assertIn("success_criterion: Add health check", user_msg)
 
 
 if __name__ == "__main__":
