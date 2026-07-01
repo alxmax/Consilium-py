@@ -196,16 +196,55 @@ class TestRunSequential(unittest.TestCase):
         self.assertEqual(report.verdict, "STOP")
         self.assertEqual(report.reason, "no_data")
 
-    def test_malformed_generator_does_not_block(self):
-        """AC2: unparseable Generator output falls through, never a silent short-circuit."""
+    def test_malformed_generator_blocks_with_explicit_reason(self):
+        """AC2 (revised 2026-07-01): unparseable Generator output is an explicit
+        voice_unparseable BLOCK — never mislabeled as not_a_proposal, and never
+        the old fall-through that yielded GO 1.0 with chosen=None."""
         report = self._run(CONS_GO, "this is not json", CTRL_GO)
-        self.assertNotEqual(report.verdict, "BLOCK")
+        self.assertEqual(report.verdict, "BLOCK")
+        self.assertEqual(report.reason, "voice_unparseable")
+        self.assertNotIn("not a deliberation input", report.recommendation.lower())
+        self.assertIn("generator", report.recommendation.lower())
+
+    def test_malformed_conservator_blocks(self):
+        """Regression (probe 2026-07-01: garbage conservator → GO 1.0): an
+        unparseable Conservator output silently disables the irreversibility
+        veto layer — it must BLOCK, not GO."""
+        report = self._run("garbage", GEN_GO, CTRL_GO)
+        self.assertEqual(report.verdict, "BLOCK")
+        self.assertEqual(report.reason, "voice_unparseable")
+        self.assertIn("conservator", report.recommendation.lower())
+
+    def test_malformed_control_blocks(self):
+        report = self._run(CONS_GO, GEN_GO, "garbage")
+        self.assertEqual(report.verdict, "BLOCK")
+        self.assertEqual(report.reason, "voice_unparseable")
+
+    def test_all_voices_unparseable_blocks(self):
+        """Regression (audit 2026-07-01): three garbage outputs used to produce
+        GO 0.9 'Deliberation completed without anomalies'."""
+        report = self._run("garbage", "also garbage", "still garbage")
+        self.assertEqual(report.verdict, "BLOCK")
+        self.assertEqual(report.reason, "voice_unparseable")
+        self.assertEqual(report.confidence, 0.1)
 
     def test_soft_abstain_is_not_short_circuited(self):
         """AC3: a real proposal flagged with a soft abstain reason is NOT mislabeled."""
         report = self._run(CONS_GO, GEN_SOFT_ABSTAIN, CTRL_GO)
         self.assertNotEqual(report.verdict, "BLOCK")
         self.assertNotIn("not a deliberation input", report.recommendation.lower())
+
+    def test_non_dict_option_entries_ignored(self):
+        """A malformed options list mixing strings with dicts must not crash
+        the aggregator (audit 2026-07-01 minor: missing isinstance guard)."""
+        gen = json.dumps({
+            "preferred": "approach_a",
+            "options": ["stray string", {"id": "approach_a"}],
+            "abstain": {"triggered": False},
+        })
+        report = self._run(CONS_GO, gen, CTRL_GO)
+        self.assertEqual(report.verdict, "GO")
+        self.assertEqual(report.chosen, "approach_a")
 
     def test_sample_fixture_validates(self):
         data = json.loads((FIXTURE_DIR / "sample_report.json").read_text())

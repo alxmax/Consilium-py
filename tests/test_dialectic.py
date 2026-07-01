@@ -20,6 +20,25 @@ GEN_NOT_PROPOSAL = json.dumps({
     "abstain": {"triggered": True, "reason": "not_a_proposal"},
 })
 
+GEN_GO_WITH_SKETCH = json.dumps({
+    "preferred": "approach_a",
+    "candidates": [
+        {
+            "id": "approach_a",
+            "summary": "Add a /health endpoint",
+            "sketch": "Add a GET /health route returning 200 + version JSON.",
+            "rationale": "Smallest change that satisfies the readiness goal.",
+        },
+    ],
+    "abstain": {"triggered": False},
+})
+
+CONS_SCALE_DOWN = json.dumps({
+    "scores": [{"id": "approach_a", "reversibility": "complete", "magnitude": "trivial",
+                "regression_risk": {"net_concern": 0.1}, "irreversibility_flag": False,
+                "meta_recommendation": "scale_down"}]
+})
+
 SKEPTIC_NO_OBJECTION = json.dumps({
     "can_object": False,
     "objection": None,
@@ -105,6 +124,48 @@ class TestRunDialectic(unittest.TestCase):
         """Advisory: unaddressable doesn't override without --skeptic-can-override."""
         report = self._run(SKEPTIC_UNADDRESSABLE, skeptic_can_override=False)
         self.assertEqual(report.verdict, "GO")
+
+    def _run_custom(self, gen: str, cons: str, ctrl: str, skeptic_text: str):
+        from consilium.models import DeliberationInput
+        from consilium.modes.dialectic import run_dialectic
+
+        seq_outputs = iter([gen, cons, ctrl])
+        with patch("consilium.modes.sequential.call_voice", side_effect=lambda *_a, **_kw: next(seq_outputs)), \
+             patch("consilium.skeptic.call_voice", return_value=skeptic_text):
+            return run_dialectic(DeliberationInput(proposal="Add health check endpoint"))
+
+    def test_chosen_fields_preserved(self):
+        """Regression (audit 2026-07-01): the dialectic rebuild dropped
+        chosen_summary/chosen_sketch/chosen_rationale, so the CLI's
+        'How to implement' section never rendered in dialectic mode."""
+        report = self._run_custom(GEN_GO_WITH_SKETCH, CONS_GO, CTRL_GO, SKEPTIC_NO_OBJECTION)
+        self.assertEqual(report.chosen, "approach_a")
+        self.assertEqual(report.chosen_summary, "Add a /health endpoint")
+        self.assertIn("GET /health", report.chosen_sketch or "")
+        self.assertIn("readiness goal", report.chosen_rationale or "")
+
+    def test_skeptic_receives_chosen_candidate_details(self):
+        """Bug #6 (audit 2026-07-01): the Skeptic challenged the raw proposal;
+        it must receive the chosen candidate's summary/sketch/rationale."""
+        from consilium.models import DeliberationInput
+        from consilium.modes.dialectic import run_dialectic
+
+        seq_outputs = iter([GEN_GO_WITH_SKETCH, CONS_GO, CTRL_GO])
+        with patch("consilium.modes.sequential.call_voice", side_effect=lambda *_a, **_kw: next(seq_outputs)), \
+             patch("consilium.skeptic.call_voice", return_value=SKEPTIC_NO_OBJECTION) as mock_call:
+            run_dialectic(DeliberationInput(proposal="Add health check endpoint"))
+
+        user_msg = mock_call.call_args.args[2]
+        self.assertIn("Add a /health endpoint", user_msg)
+        self.assertIn("GET /health", user_msg)
+
+    def test_scale_down_reason_preserved(self):
+        """Regression (audit 2026-07-01): dropping reason='scale_down' meant
+        deliberate() never swapped in the real short response, leaking the
+        'max 2 sentences' instruction text to the user."""
+        report = self._run_custom(GEN_GO, CONS_SCALE_DOWN, CTRL_GO, SKEPTIC_NO_OBJECTION)
+        self.assertEqual(report.mode, "dialectic")
+        self.assertEqual(report.reason, "scale_down")
 
     def test_block_skips_skeptic(self):
         """AC4: a not_a_proposal BLOCK from sequential skips the Skeptic entirely."""

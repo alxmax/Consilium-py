@@ -85,7 +85,7 @@ A skeptic verdict is **rejected** at validate when:
 
 If the validate gate fails, the skeptic output is discarded and the chosen ships unchallenged.
 
-**Orchestrator enforcement.** This validation gate is not self-enforced by the skeptic — it is checked by the orchestrator after the skeptic output is returned, per SKILL.md § `skeptic_on_chosen` Step 3. A skeptic that emits invalid output is rejected silently; the orchestrator does not retry.
+**Enforcement.** The evidence rule (≥2 concrete concerns OR ≥1 quoted scenario) is enforced in code by `parse_skeptic` (`consilium/skeptic.py`): an objection that fails it is discarded silently — `can_object` flips to `false` and the chosen ships unchallenged. There is no retry.
 
 ## Anti-patterns to avoid
 

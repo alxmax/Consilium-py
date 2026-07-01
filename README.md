@@ -44,9 +44,9 @@ export OPENROUTER_API_KEY=sk-or-...
 
 | Mode | Description |
 |---|---|
-| `sequential` *(default)* | Conservator → Generator → Control in a single context chain |
+| `sequential` *(default)* | Generator → Conservator → Control in a single context chain |
 | `dialectic` | Sequential + Skeptic challenger on the chosen candidate |
-| `trias` | 3 parallel personalities (Pioneer, Architect, Steward) with democratic vote |
+| `trias` | 3 parallel personalities (Pioneer, Architect, Steward) voting on a shared candidate set |
 | `langgraph` | LangGraph-orchestrated pipeline; requires `[langgraph]` extra |
 
 ## Usage

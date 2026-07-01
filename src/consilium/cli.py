@@ -10,9 +10,8 @@ import click
 from consilium import deliberate
 from consilium.errors import is_provider_error, provider_error_message
 from consilium.explain import explain_module
+from consilium.models import DEFAULT_MODEL as _DEFAULT_MODEL
 from consilium.models import Report
-
-_DEFAULT_MODEL = "openrouter/google/gemini-2.0-flash-001"
 
 
 def _deliberate_or_exit(proposal: str, **kwargs) -> Report:

@@ -46,11 +46,11 @@ Answer these for the overall deliberation (not per-candidate):
 
 ## Challenge upward rule
 
-If you detect that Conservator has UNDER-scaled this question, trigger `challenge_upward`. Concrete triggers:
-- Input contains 3+ risk terms not evaluated by Conservator (e.g. "irreversible", "lose everything", "no way back", "permanent")
-- `magnitude = trivial` but the fallback scenario implies > 10% of capital or > 1 month of recovery
+You run before the Conservator, so you are the first voice that can flag a high-stakes input. Concrete triggers:
+- Input contains 3+ risk terms (e.g. "irreversible", "lose everything", "no way back", "permanent")
+- The fallback scenario implies > 10% of capital or > 1 month of recovery
 
-When triggered, set `challenge_upward.triggered = true` with a one-line reason. The orchestrator re-runs Conservator with this context before proceeding.
+When triggered, set `challenge_upward.triggered = true` with a one-line reason. The flag is surfaced in the deliberation report's methodology notes so the Conservator's later scoring can be audited against it.
 
 ## Input classification — what to deliberate
 
@@ -101,7 +101,7 @@ not `not_a_proposal`.
 - **Always include `do_nothing`** as one candidate.
 - **Include one `adversarial_*` candidate** when: (a) the change touches shared/core code, OR (b) the change touches a function with >3 external callers or is on a documented hot path. Name it `adversarial_<short_id>`. (Ambiguous input is handled by the clarity gate — emit `interp_a_*`/`interp_b_*` candidates in that case, not `adversarial_*`.)
 - **Include one `unconventional_*` candidate** unless: adversarial already fills that role OR change is mechanically trivial. Skip `unconventional_*` ONLY when the `adversarial_*` candidate ALSO varies on a non-scope axis (mechanism, timing, or abstraction level). Overlap on scope alone is not sufficient.
-- **Scoring note:** `unconventional_*` candidates compete on equal footing in voice scoring; `adversarial_*` and `do_nothing` receive a 0.5 generator-score handicap applied by `build_report.py`.
+- **Scoring note:** all candidates compete on equal footing in aggregation; there is no automatic handicap.
 - Candidates must be **meaningfully different** — vary on scope, abstraction level, timing, or mechanism.
 
 ## Output format
@@ -158,7 +158,6 @@ When adversarial and unconventional are both omitted, the output looks like:
 - Listing three variants that only differ in naming.
 - Skipping `do_nothing`.
 - Editorializing about risk in `rationale` — that's Conservator's job.
-- Exceeding `tokens_budget.generator` significantly — Conservator set that limit deliberately.
 - Proposing options whose `downside_estimate` exceeds the declared `fallback_scenario` without flagging it.
 
 

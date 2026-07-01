@@ -15,9 +15,15 @@ def run_dialectic(
     if report.verdict == "BLOCK":
         return report.model_copy(update={"mode": "dialectic"})
 
-    # Skeptic sees only the chosen, not the full deliberation.
+    # Skeptic sees only the chosen candidate (summary/sketch/rationale per its
+    # contract), not the full deliberation.
     chosen_id = report.chosen or "the proposed approach"
-    sk, skeptic_voice = skeptic_challenge(chosen_id, inp)
+    sk, skeptic_voice = skeptic_challenge(
+        chosen_id, inp,
+        summary=report.chosen_summary,
+        sketch=report.chosen_sketch,
+        rationale=report.chosen_rationale,
+    )
 
     verdict = report.verdict
     confidence = report.confidence
@@ -36,13 +42,14 @@ def run_dialectic(
             verdict = "MODIFY"
             recommendation = f"Skeptic: in-place fix needed ({sk.failure_mode}): {sk.notes}"
 
-    return Report(
-        verdict=verdict,
-        confidence=confidence,
-        recommendation=recommendation,
-        voices=[*report.voices, skeptic_voice],
-        chosen=report.chosen,
-        pipeline_executed=True,
-        mode="dialectic",
-        skeptic=sk,
-    )
+    # model_copy keeps chosen_summary/chosen_sketch/chosen_rationale/reason —
+    # a full rebuild dropped them, hiding "How to implement" and breaking the
+    # scale_down → short_response swap in deliberate().
+    return report.model_copy(update={
+        "verdict": verdict,
+        "confidence": confidence,
+        "recommendation": recommendation,
+        "voices": [*report.voices, skeptic_voice],
+        "mode": "dialectic",
+        "skeptic": sk,
+    })

@@ -1,7 +1,11 @@
 """Trias mode — 3 parallel personalities (Pioneer / Architect / Steward).
 
-Each personality runs a full Sequential deliberation with its lens prepended
-to every voice prompt. The 3 results are aggregated by democratic majority vote.
+A neutral Generator first produces one shared candidate set; each personality
+then runs a full Sequential deliberation with its lens prepended to every
+voice prompt, selecting its preferred among the SHARED candidate ids — so the
+democratic majority vote tallies semantically comparable choices (independent
+generators produced id collisions: a coincidental 'do_nothing' 3-0 scored
+0.95, while the same approach under three names escalated as 'no majority').
 API calls are dispatched in parallel via asyncio.to_thread (thread-pool I/O).
 """
 # implements: CPYMOD-TRI-001
@@ -29,9 +33,21 @@ _VOTE_CONFIDENCE: dict[str, float | None] = {
 }
 
 
+# ── shared candidate set ─────────────────────────────────────────────────────
+
+def _neutral_generator(inp: DeliberationInput) -> str:
+    """One lens-free Generator run — the shared candidate set every
+    personality votes on. Without it, ids are per-run labels and the vote
+    tallies coincidences instead of choices."""
+    proposal_msg = f"PROPOSAL:\n{inp.proposal}"
+    if inp.context:
+        proposal_msg += f"\n\nCONTEXT:\n{inp.context}"
+    return call_voice("generator", load_prompt("generator"), proposal_msg, inp.model)
+
+
 # ── single personality ───────────────────────────────────────────────────────
 
-def _run_personality(name: str, inp: DeliberationInput) -> Report:
+def _run_personality(name: str, inp: DeliberationInput, shared_gen: str) -> Report:
     lens = load_prompt(f"{name}_lens")
     sep = "\n\n---\n\n"
 
@@ -39,11 +55,21 @@ def _run_personality(name: str, inp: DeliberationInput) -> Report:
     if inp.context:
         proposal_msg += f"\n\nCONTEXT:\n{inp.context}"
 
-    # Generator runs FIRST — blind to risk framing (anti-anchoring).
+    # Generator runs FIRST — blind to risk framing (anti-anchoring). It
+    # evaluates the SHARED candidates through this personality's lens so its
+    # `preferred` is comparable across personalities in the team vote.
+    gen_msg = (
+        f"{proposal_msg}\n\n"
+        f"--- SHARED CANDIDATES (from a neutral Generator) ---\n{shared_gen}\n\n"
+        "Evaluate THESE candidates through your lens. Keep the exact candidate "
+        "ids — do not invent new ids; select your `preferred` among them. You "
+        "may refine sketches/rationales, and you may still abstain per your "
+        "abstain rule."
+    )
     gen_out = call_voice(
         "generator",
         lens + sep + load_prompt("generator"),
-        proposal_msg,
+        gen_msg,
         inp.model,
     )
     cons_msg = f"{proposal_msg}\n\n--- GENERATOR OUTPUT ---\n{gen_out}"
@@ -66,8 +92,8 @@ def _run_personality(name: str, inp: DeliberationInput) -> Report:
 
 # ── parallel dispatch ────────────────────────────────────────────────────────
 
-async def _run_all(inp: DeliberationInput) -> list[Report]:
-    tasks = [asyncio.to_thread(_run_personality, name, inp) for name in PERSONALITIES]
+async def _run_all(inp: DeliberationInput, shared_gen: str) -> list[Report]:
+    tasks = [asyncio.to_thread(_run_personality, name, inp, shared_gen) for name in PERSONALITIES]
     return await asyncio.gather(*tasks)
 
 
@@ -116,7 +142,16 @@ def _team_vote(
 # ── public entry point ───────────────────────────────────────────────────────
 
 def run_trias(inp: DeliberationInput, skeptic_can_override: bool = False) -> Report:
-    results = asyncio.run(_run_all(inp))
+    shared_gen = _neutral_generator(inp)
+    results = asyncio.run(_run_all(inp, shared_gen))
+
+    # Categorical veto propagation: a BLOCK from any personality (glossary_fail,
+    # irreversibility, not_a_proposal, voice_unparseable) is absolute — safety
+    # vetoes are not out-votable, and propagating the reason lets deliberate()
+    # convert not_a_proposal to ANSWER exactly like the other modes.
+    blocked = next((r for r in results if r.verdict == "BLOCK"), None)
+    if blocked is not None:
+        return blocked.model_copy(update={"mode": "trias"})
 
     # Collect what each personality chose
     p_data = [
@@ -133,6 +168,7 @@ def run_trias(inp: DeliberationInput, skeptic_can_override: bool = False) -> Rep
     confidence = _VOTE_CONFIDENCE.get(vote_pattern, 0.3) or 0.3
 
     # Derive overall verdict and recommendation from the winning personality's report
+    winner_report: Report | None = None
     if winner_id is not None:
         winner_idx = next(
             (i for i, r in enumerate(results) if r.chosen == winner_id), 0
@@ -167,8 +203,13 @@ def run_trias(inp: DeliberationInput, skeptic_can_override: bool = False) -> Rep
     # Advisory by default: never flips the winner, only annotates. With
     # skeptic_can_override it can downgrade the verdict (mirrors Dialectic).
     skeptic: SkepticObjection | None = None
-    if winner_id is not None:
-        sk, skeptic_voice = skeptic_challenge(winner_id, inp)
+    if winner_id is not None and winner_report is not None:
+        sk, skeptic_voice = skeptic_challenge(
+            winner_id, inp,
+            summary=winner_report.chosen_summary,
+            sketch=winner_report.chosen_sketch,
+            rationale=winner_report.chosen_rationale,
+        )
         skeptic = sk
         voices.append(skeptic_voice)
         if skeptic_can_override and sk.can_object:
@@ -192,6 +233,9 @@ def run_trias(inp: DeliberationInput, skeptic_can_override: bool = False) -> Rep
         recommendation=recommendation,
         voices=voices,
         chosen=winner_id,
+        chosen_summary=winner_report.chosen_summary if winner_report else None,
+        chosen_sketch=winner_report.chosen_sketch if winner_report else None,
+        chosen_rationale=winner_report.chosen_rationale if winner_report else None,
         pipeline_executed=True,
         mode="trias",
         skeptic=skeptic,

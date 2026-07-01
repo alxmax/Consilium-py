@@ -20,6 +20,19 @@ def parse_skeptic(skeptic_out: dict, raw_text: str) -> tuple[SkepticObjection, V
     concerns: list[str] = objection.get("concrete_concerns") or []
     failure_mode: str | None = objection.get("failure_mode") or None
     addressable = objection.get("addressable") or None
+    quoted_scenario = objection.get("quoted_scenario") or None
+
+    # Validation gate (skeptic.md): an objection needs >=2 concrete concerns
+    # OR >=1 quoted scenario — anything weaker is discarded and the chosen
+    # ships unchallenged, so a vague objection can never downgrade a verdict
+    # under --skeptic-can-override.
+    if can_object and len(concerns) < 2 and not quoted_scenario:
+        can_object = False
+        failure_mode = None
+        addressable = None
+        concerns = []
+        gate_note = "objection discarded: fewer than 2 concrete concerns and no quoted scenario"
+        notes = f"{notes} | {gate_note}" if notes else gate_note
 
     sk = SkepticObjection(
         can_object=can_object,
@@ -45,14 +58,26 @@ def parse_skeptic(skeptic_out: dict, raw_text: str) -> tuple[SkepticObjection, V
     return sk, voice
 
 
-def challenge(chosen_id: str, inp: DeliberationInput) -> tuple[SkepticObjection, VoiceOutput]:
-    """Dispatch one Skeptic on the chosen approach; return (objection, voice)."""
+def challenge(
+    chosen_id: str,
+    inp: DeliberationInput,
+    *,
+    summary: str | None = None,
+    sketch: str | None = None,
+    rationale: str | None = None,
+) -> tuple[SkepticObjection, VoiceOutput]:
+    """Dispatch one Skeptic on the chosen approach; return (objection, voice).
+
+    Pass the chosen candidate's summary/sketch/rationale when available — the
+    Skeptic contract promises them; without them it can only critique the raw
+    proposal (fallback for BLOCK-less runs with no parsed candidate)."""
+    lines = [f"chosen:", f"  id: {chosen_id}", f"  summary: {summary or inp.proposal}"]
+    if sketch:
+        lines.append(f"  sketch: {sketch}")
+    lines.append(f"  rationale: {rationale or 'Selected by the deliberation.'}")
     skeptic_input = (
-        f"chosen:\n"
-        f"  id: {chosen_id}\n"
-        f"  summary: {inp.proposal}\n"
-        f"  rationale: Selected by the deliberation.\n\n"
-        f"success_criterion: {inp.proposal}\n\n"
+        "\n".join(lines)
+        + f"\n\nsuccess_criterion: {inp.proposal}\n\n"
         f"verification: Manual verification by the implementer."
     )
     if inp.context:

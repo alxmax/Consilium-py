@@ -61,6 +61,33 @@ def _run_sequential_scheme(
 ) -> dict[str, Any]:
     triggers: list[str] = []
 
+    # An unparseable voice output ({} from extract_json) must never fall
+    # through: garbage used to aggregate to GO 0.9–1.0 with zero risk
+    # assessment — an unparseable Conservator silently disables the
+    # irreversibility veto. BLOCK explicitly, naming the failed voices, so
+    # it is never mislabeled as not_a_proposal (AC2).
+    unparseable = [
+        name
+        for name, out in (
+            ("generator", generator_out),
+            ("control", control_out),
+            ("conservator", conservator_out),
+        )
+        if not out
+    ]
+    if unparseable:
+        return {
+            "scheme": "sequential",
+            "result": "BLOCK",
+            "reason": "voice_unparseable",
+            "voices_failed": unparseable,
+            "action": (
+                f"Voice output unparseable ({', '.join(unparseable)}) — no verdict "
+                "can be trusted. Retry the deliberation or check the model "
+                "configuration."
+            ),
+        }
+
     if control_out.get("glossary_fail"):
         return {
             "scheme": "sequential",
@@ -165,6 +192,8 @@ def _run_sequential_scheme(
     options = generator_out.get("options", generator_out.get("candidates", []))
     confidence_per_option: dict[str, float] = {}
     for opt in options:
+        if not isinstance(opt, dict):
+            continue
         oid = opt.get("id", "")
         base = 1.0 if oid == preferred else 0.5
         net_concern = _net_concern_for(conservator_out, oid)

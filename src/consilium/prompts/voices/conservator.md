@@ -44,7 +44,7 @@ Answer all five for each candidate. Output them in the JSON fields below.
 
 ## Tokens budget
 
-Based on Q1+Q2, set how many tokens Generator and Control should each use:
+Based on Q1+Q2, set how many tokens Control (which runs after you) should use. The `generator` figure is retrospective calibration context only — Generator has already run:
 
 | magnitude × reversibility | tokens per voice |
 |---|---|
