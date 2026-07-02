@@ -39,6 +39,9 @@
   --stop: oklch(0.58 0.19 25);
   --escalate: oklch(0.55 0.13 285);
 
+  /* Infra / ops accent — terracotta signal, kept distinct from the voices */
+  --signal: oklch(0.58 0.15 35);
+
   --font-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
@@ -67,6 +70,7 @@
   --modify: oklch(0.78 0.15 60);
   --stop: oklch(0.7 0.17 25);
   --escalate: oklch(0.7 0.12 285);
+  --signal: oklch(0.72 0.15 45);
 }
 
 * { box-sizing: border-box; }
@@ -322,6 +326,21 @@ code, .mono {
 .feature__b code { background: var(--paper-3); padding: 1px 5px; border-radius: 4px; }
 @media (max-width: 720px) { .feature { grid-template-columns: 1fr; gap: 8px; } }
 
+/* === Deploy flow (static, echoes the hero pipeline) === */
+.deploy-flow { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr; align-items: stretch; gap: 0; margin: 4px 0 30px; }
+@media (max-width: 820px) { .deploy-flow { grid-template-columns: 1fr; gap: 12px; } }
+.deploy-flow .arrow span { opacity: 1; }
+.dstep { border: 1px solid var(--rule-2); border-radius: 11px; background: var(--paper); padding: 15px 16px; }
+.dstep__k { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--signal); margin: 0 0 8px; display: flex; align-items: center; gap: 8px; }
+.dstep__k .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--signal); flex: none; }
+.dstep__n { font-family: var(--font-sans); font-weight: 500; font-size: 16px; letter-spacing: -0.02em; margin: 0 0 5px; }
+.dstep__d { font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-3); line-height: 1.5; margin: 0; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 6px; }
+.chip { font-family: var(--font-mono); font-size: 12.5px; color: var(--ink-2); border: 1px solid var(--rule-2); border-radius: 999px; padding: 7px 13px; background: var(--paper); display: inline-flex; align-items: center; gap: 8px; }
+.chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--signal); flex: none; }
+.chips-label { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 14px; }
+
 /* === Footer === */
 .footer { border-top: 1px solid var(--rule); padding: 48px 0 56px; }
 .footer__grid { display: flex; justify-content: space-between; align-items: flex-start; gap: 32px; flex-wrap: wrap; }
@@ -356,6 +375,7 @@ a:focus-visible, button:focus-visible, .copy-field:focus-visible { outline: 2px 
     <a href="#modes">Modes</a>
     <a href="#verdicts">Verdicts</a>
     <a href="#under">Under the hood</a>
+    <a href="#deploy">Deploy</a>
   </nav>
   <div class="topbar__right">
     <a class="nav" href="https://github.com/alxmax/Consilium-py" style="display:inline">GitHub ↗</a>
@@ -575,7 +595,71 @@ curl -X POST localhost:8123/deliberate \
         </div>
         <div class="feature">
           <div class="feature__h">Traceable by design<span class="req">requirement map</span></div>
-          <div class="feature__b">Every capability carries a <code>#&nbsp;implements:</code> tag linked to a requirement doc; a drift gate fails the build when code and spec diverge. Ships to Cloud Run via the Terraform in <code>infra/</code>.</div>
+          <div class="feature__b">Every capability carries a <code>#&nbsp;implements:</code> tag linked to a requirement doc; a drift gate fails the build when code and spec diverge — so the docs can’t quietly rot away from the code.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DEPLOY -->
+  <section class="section section--tinted" id="deploy">
+    <div class="container">
+      <p class="eyebrow reveal">Ship it</p>
+      <h2 class="h-section reveal">From <code style="font-size:0.82em">git&nbsp;push</code> to Cloud Run.</h2>
+      <p class="lede reveal" style="margin-bottom:40px">
+        The package ships with the infrastructure to run it — containerized, provisioned as code,
+        and gated by CI. Not an afterthought: the whole path is in the repo.
+      </p>
+
+      <div class="deploy-flow reveal">
+        <div class="dstep">
+          <p class="dstep__k"><span class="dot"></span>Dockerfile</p>
+          <p class="dstep__n">Container</p>
+          <p class="dstep__d">python:3.12-slim<br>→ uvicorn</p>
+        </div>
+        <div class="arrow"><span>→</span></div>
+        <div class="dstep">
+          <p class="dstep__k"><span class="dot"></span>Artifact Registry</p>
+          <p class="dstep__n">Image</p>
+          <p class="dstep__d">build &amp; push<br>to GCP</p>
+        </div>
+        <div class="arrow"><span>→</span></div>
+        <div class="dstep">
+          <p class="dstep__k"><span class="dot"></span>Terraform</p>
+          <p class="dstep__n">Provision</p>
+          <p class="dstep__d">infra/ as code<br>terraform apply</p>
+        </div>
+        <div class="arrow"><span>→</span></div>
+        <div class="dstep">
+          <p class="dstep__k"><span class="dot"></span>Cloud Run v2</p>
+          <p class="dstep__n">Serve</p>
+          <p class="dstep__d">scales to zero,<br>private by default</p>
+        </div>
+      </div>
+
+      <p class="chips-label reveal">Stack</p>
+      <div class="chips reveal">
+        <span class="chip"><span class="dot"></span>Docker</span>
+        <span class="chip"><span class="dot"></span>Terraform</span>
+        <span class="chip"><span class="dot"></span>GCP Cloud Run</span>
+        <span class="chip"><span class="dot"></span>Artifact Registry</span>
+        <span class="chip"><span class="dot"></span>Secret Manager</span>
+        <span class="chip"><span class="dot"></span>GitHub Actions</span>
+        <span class="chip"><span class="dot"></span>Dependabot</span>
+      </div>
+
+      <div class="reveal" style="margin-top:40px">
+        <div class="feature">
+          <div class="feature__h">CI on every change<span class="req">.github/workflows</span></div>
+          <div class="feature__b">A GitHub Actions job runs <code>terraform fmt&nbsp;-check</code>, <code>init</code>, and <code>validate</code> on every pull request that touches <code>infra/</code> — no cloud credentials needed, so it’s always green and catches broken config before merge. Actions are pinned to commit SHAs and kept current by Dependabot, closing the supply-chain gap that version tags leave open.</div>
+        </div>
+        <div class="feature">
+          <div class="feature__h">Secrets, done right<span class="req">Secret Manager</span></div>
+          <div class="feature__b">The API key lives in Secret Manager and the service reads it by reference — never a plaintext environment variable, never in the Terraform state as a literal. Public access is opt-in behind a variable; the service is private by default.</div>
+        </div>
+        <div class="feature">
+          <div class="feature__h">Infrastructure as code<span class="req">infra/*.tf</span></div>
+          <div class="feature__b">Artifact Registry, the Cloud Run service, Secret Manager, and IAM are all declared in Terraform — reproducible, reviewable, and destroyable in one command. The <code>apply</code> is a documented step today; wiring it to CI via Workload Identity Federation is the next increment.</div>
         </div>
       </div>
     </div>
