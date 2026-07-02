@@ -661,7 +661,7 @@ curl -X POST localhost:8123/deliberate \
         </div>
         <div class="feature">
           <div class="feature__h">Infrastructure as code<span class="req">infra/*.tf</span></div>
-          <div class="feature__b">Artifact Registry, the Cloud Run service, Secret Manager, and IAM are all declared in Terraform — reproducible, reviewable, and destroyable in one command. The <code>apply</code> is a documented step today; wiring it to CI via Workload Identity Federation is the next increment.</div>
+          <div class="feature__b">Artifact Registry, the Cloud Run service, Secret Manager, and IAM are all declared in Terraform, with state kept in a versioned GCS bucket rather than a local file — reproducible, reviewable, and destroyable in one command. The <code>apply</code> is a documented step today; wiring it to CI via Workload Identity Federation is the next increment.</div>
         </div>
       </div>
     </div>

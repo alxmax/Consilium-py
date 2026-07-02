@@ -237,8 +237,8 @@ print(report.recommendation)
 
 Terraform for running the [HTTP API](#http-api) on GCP Cloud Run lives in
 [`infra/`](infra/README.md) — private by default, API key in Secret Manager, no plain
-secrets in Cloud Run env vars. See [`infra/README.md`](infra/README.md) for the build/push/apply
-steps.
+secrets in Cloud Run env vars, Terraform state in a versioned GCS bucket (not local). See
+[`infra/README.md`](infra/README.md) for the build/push/apply steps.
 
 ## Development
 
