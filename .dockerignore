@@ -20,4 +20,5 @@ runs/
 .env
 .env.example
 *.md
+!README.md
 infra/

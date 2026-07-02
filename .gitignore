@@ -10,3 +10,8 @@ build/
 runs/*.json
 .consilium/
 .worktrees/
+
+# Terraform — never commit state (it holds secret values) or the local provider cache
+infra/.terraform/
+*.tfstate
+*.tfstate.*
