@@ -1,5 +1,5 @@
 ---
-generated: 2026-07-02 16:22
+generated: 2026-07-02 23:04
 nodes: 15
 edges: 26
 ---
@@ -74,8 +74,8 @@ graph LR
   f_tests_test_cli_io_py_4["tests/test_cli_io.py:4"]
   CPYBUS_CLI_001 -->|tested-by| f_tests_test_cli_io_py_4
   CPYBUS_EXPLAIN_001["Codebase explanation — explain_module and the explain CLI command<br><small>CPYBUS-EXPLAIN-001</small>"]
-  f_src_consilium_cli_py_195["src/consilium/cli.py:195"]
-  CPYBUS_EXPLAIN_001 -->|implements| f_src_consilium_cli_py_195
+  f_src_consilium_cli_py_364["src/consilium/cli.py:364"]
+  CPYBUS_EXPLAIN_001 -->|implements| f_src_consilium_cli_py_364
   f_src_consilium_explain_py_2["src/consilium/explain.py:2"]
   CPYBUS_EXPLAIN_001 -->|implements| f_src_consilium_explain_py_2
   f_tests_test_explain_py_2["tests/test_explain.py:2"]
@@ -91,8 +91,8 @@ graph LR
   f_tests_test_voices_py_2["tests/test_voices.py:2"]
   CPYBUS_VOI_001 -->|tested-by| f_tests_test_voices_py_2
   CPYEXT_DOCRAG_001["Doc-RAG — ingest reference documents for retrieval<br><small>CPYEXT-DOCRAG-001</small>"]
-  f_src_consilium_cli_py_247["src/consilium/cli.py:247"]
-  CPYEXT_DOCRAG_001 -->|implements| f_src_consilium_cli_py_247
+  f_src_consilium_cli_py_416["src/consilium/cli.py:416"]
+  CPYEXT_DOCRAG_001 -->|implements| f_src_consilium_cli_py_416
   f_src_consilium_rag_py_3["src/consilium/rag.py:3"]
   CPYEXT_DOCRAG_001 -->|implements| f_src_consilium_rag_py_3
   f_tests_test_rag_py_3["tests/test_rag.py:3"]
@@ -139,8 +139,8 @@ graph LR
   f_tests_test_server_py_2["tests/test_server.py:2"]
   CPYSRV_HTTP_001 -->|tested-by| f_tests_test_server_py_2
   CPYSRV_SERVE_001["serve CLI command — local web UI launcher<br><small>CPYSRV-SERVE-001</small>"]
-  f_src_consilium_cli_py_46["src/consilium/cli.py:46"]
-  CPYSRV_SERVE_001 -->|implements| f_src_consilium_cli_py_46
+  f_src_consilium_cli_py_211["src/consilium/cli.py:211"]
+  CPYSRV_SERVE_001 -->|implements| f_src_consilium_cli_py_211
   f_tests_test_cli_py_3["tests/test_cli.py:3"]
   CPYSRV_SERVE_001 -->|tested-by| f_tests_test_cli_py_3
 ```

@@ -235,7 +235,7 @@
       "members": [
         {
           "role": "implements",
-          "loc": "src/consilium/cli.py:195"
+          "loc": "src/consilium/cli.py:364"
         },
         {
           "role": "implements",
@@ -411,7 +411,7 @@
       "members": [
         {
           "role": "implements",
-          "loc": "src/consilium/cli.py:247"
+          "loc": "src/consilium/cli.py:416"
         },
         {
           "role": "implements",
@@ -889,7 +889,7 @@
       "members": [
         {
           "role": "implements",
-          "loc": "src/consilium/cli.py:46"
+          "loc": "src/consilium/cli.py:211"
         },
         {
           "role": "tested-by",
