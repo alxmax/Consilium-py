@@ -2,6 +2,8 @@ scripts/reqmap.py
 scripts/_map_viewer.html
 .venv/**
 .venv
+.worktrees/**
+.worktrees
 docs/map.html
 docs/index.html
 docs/consilium_architecture.html
