@@ -198,6 +198,13 @@ print(report.recommendation)
 > A `404 No endpoints found` means the model isn't available on your account (add credits or
 > try a `:free` variant like `openrouter/google/gemini-2.0-flash-exp:free`).
 
+## Deploy
+
+Terraform for running the [HTTP API](#http-api) on GCP Cloud Run lives in
+[`infra/`](infra/README.md) — private by default, API key in Secret Manager, no plain
+secrets in Cloud Run env vars. See [`infra/README.md`](infra/README.md) for the build/push/apply
+steps.
+
 ## Development
 
 ```bash

@@ -1,0 +1,30 @@
+name: Terraform
+
+on:
+  pull_request:
+    paths: ["infra/**"]
+  push:
+    branches: [main]
+    paths: ["infra/**"]
+
+jobs:
+  # Always-green, no cloud credentials needed. Catches formatting/syntax errors.
+  validate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+      - name: Format check
+        run: terraform fmt -check -recursive
+      - name: Init (validate only, no backend)
+        run: terraform init -backend=false
+      - name: Validate
+        run: terraform validate
+
+  # A plan/apply job (Workload Identity Federation + deployer service account) belongs
+  # here once you actually wire up cloud deploy from CI — add it then, with the same
+  # SHA-pinning discipline as above. Until it exists, `terraform apply` is a local step
+  # (see infra/README.md).
