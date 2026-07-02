@@ -255,6 +255,11 @@ tests carry `# tested-by: <ID>`. [`requirements/_map.md`](requirements/_map.md) 
 source-of-truth map (also viewable as [`requirements/_map.html`](requirements/_map.html)) — the
 `gate` command above fails the build if code and requirements drift apart.
 
+CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs the test suite on a **Python
+3.11 + 3.12 matrix** plus the drift gate on every push. Two versions, not one, because the
+package declares `requires-python = ">=3.11"` — testing both proves the floor it advertises
+actually holds, so a 3.11 user can't hit a version-specific break that only 3.12 was tested against.
+
 ## Requirements
 
 - Python 3.11+
