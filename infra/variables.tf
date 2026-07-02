@@ -4,8 +4,8 @@ variable "project_id" {
 }
 
 variable "region" {
-  type        = string
-  default     = "europe-central2" # Warsaw — closest GCP region to Romania
+  type    = string
+  default = "europe-central2" # Warsaw — closest GCP region to Romania
 }
 
 variable "service_name" {
