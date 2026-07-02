@@ -1,58 +1,65 @@
 # TODO
 
+## Status (2026-07-02)
+
+Roadmap audited via `/senate` (9-senator MODIFY verdict, 2 rounds — see
+`runs/senate/2026-07-02_142843-consilium-py-rag-roadmap-implementation.json`
+in the Senate repo). Key rescope: items 1+2 were merged into the existing
+`rag.py` machinery (a `kind` metadata field, not a parallel `docs.py`
+subsystem — Musk's finding), and items 3/7/8 were dropped as premature for
+a corpus that doesn't exist yet. Implemented: 4, 5, 6, 1+2 (merged), 9, 10.
+
 ## A. Doc-RAG — corpusul de documente legacy (cea mai valoroasă)
 
-1. `docs.py` + comanda `consilium ingest <path>` — loader (md/txt/cod la v1) → chunking cu
-   overlap → embed → upsert într-o colecție nouă `consilium_docs`, cu metadata `source` +
-   `chunk_index`. Fișiere: nou `src/consilium/docs.py` + o comandă în `cli.py`. De ce: e
-   singura cale prin care implementezi chunking real (conceptul de pe CV) și primul RAG
-   care ingeră documente externe. Efort: **L**.
-2. Injectarea în `deliberate()` a unui bloc separat „RELEVANT DOCS", distinct de „SIMILAR
-   PAST DECISIONS", cu citarea sursei în output. Fișier: `__init__.py` + un `retrieve()` în
-   `docs.py`. De ce: vocea Control face deja „glossary compliance" — un corpus îi dă exact
-   ce să verifice și poate cita „conform CODING_STANDARDS.md". Depinde de #1. Efort: **M**.
-3. Corpus pinuit/versionat — comiți corpusul în repo + model de embedding fix → retrieval
-   reproductibil. De ce: rezolvă tensiunea cu determinismul; calea „docs" (corpus fix) e
-   singura care poate fi vreodată default-safe, spre deosebire de memoria de rulări.
-   Efort: **S** (decizie de design + un manifest).
+1. [x] ~~`docs.py`~~ Implemented as `consilium ingest <path>` in `rag.py` (not a
+   separate module — see status note above) — loader (md/txt/py/rst la v1) →
+   chunking cu overlap (1200 chars / 200 overlap) → embed → upsert în
+   `consilium_runs_v2` cu `metadata={"kind":"doc", "source", "chunk_index"}`.
+   Guards: fișiere >1MB skip, binare (UTF-8 decode fail) skip, symlink în
+   afara root-ului skip.
+2. [x] Injectarea în `deliberate()` a unui bloc separat „RELEVANT DOCS", distinct de
+   „SIMILAR PAST DECISIONS", cu citarea sursei (`[source#chunk_index]`) în output.
+   `build_rag_context()` combină ambele blocuri.
+3. [ ] **Deferred** — Corpus pinuit/versionat. Musk: nu există încă un corpus de
+   pinuit — pinning-ul unui corpus gol e prematur. Revizitează după ce
+   `consilium ingest` are utilizare reală.
 
 ## B. Fixuri pe RAG-ul de rulări existent (`rag.py`)
 
-4. Embed document mai bogat — în `index()`, `documents = proposal + context`, nu doar
-   `proposal`. De ce: cea mai mare îmbunătățire de calitate dintr-o singură modificare;
-   acum match-uiești pe un string subțire. Efort: **S**.
-5. Cosine + colecție versionată — creezi colecția cu `metadata={"hnsw:space":"cosine"}`, o
-   redenumești (`consilium_runs_v2`) ca să nu coliziune cu indexul L2 vechi, și recalibrezi
-   `_MAX_DISTANCE`. De ce: default-ul Chroma e L2; pragul actual de 0.35 probabil taie
-   aproape tot silențios. Efort: **S**.
-6. Filtru la query (`where`) — recuperezi doar rulări cu `confidence >= prag` și `verdict`
-   care nu e `STOP`/`BLOCK`. De ce: acum surfacezi și decizii slabe ca „past guidance".
-   Efort: **S**.
+4. [x] Embed document mai bogat — `index()` acum embed `proposal + context`.
+5. [x] Cosine + colecție versionată — `metadata={"hnsw:space":"cosine"}`,
+   colecție redenumită `consilium_runs_v2`, `_MAX_DISTANCE` recalibrat la
+   `0.55` și validat empiric în `tests/test_rag.py::TestMaxDistanceCalibration`
+   (perechi proposal similare/diferite, embedding real). Hint pe stderr dacă
+   colecția veche L2 are date orfane.
+6. [x] Filtru la query (`where`) — exclude rulări `STOP`/`BLOCK` și
+   `confidence < 0.5`. Livrat ca default de design, fără pretenție de
+   îmbunătățire empirică măsurată (per Deming — vezi requirement doc).
 
 ## C. Calitate transversală
 
-7. Reranking opțional (`[rerank]` extra) — retrieve top-10 → cross-encoder
-   (ms-marco-MiniLM) → top-3. Se aplică mai ales pe docs. De ce: al doilea concept de pe CV,
-   implementat pe bune; util doar când ai corpus mare de chunk-uri. Efort: **M**.
-8. Embedding function pluggable — env `CONSILIUM_EMBED` pentru MiniLM ↔ OpenAI (comentariul
-   deja e în cod). De ce: demonstrezi că înțelegi trade-off-ul local vs API. Efort: **S**.
+7. [ ] **Deferred** — Reranking opțional (`[rerank]` extra). Musk: optimizare
+   pentru un corpus/scală care nu există încă — nimic de reranked cu
+   `k=3` pe un index mic.
+8. [ ] **Deferred** — Embedding function pluggable (`CONSILIUM_EMBED`). Musk:
+   surface de config speculativă, în conflict cu #3 (pinning); Dimon: fără un
+   check de compatibilitate, un swap silențios amestecă spații de embedding
+   incompatibile și întoarce rezultate garbage fără eroare. Revizitează cu
+   ambele rezolvate simultan dacă redeschis.
 
 ## D. Ergonomie
 
-9. `--rag/--no-rag` + env `CONSILIUM_RAG` — default livrat off, dar poți face default-on pe
-   mașina locală cu o setare, fără să-l impui în CI. Fișiere: `cli.py` + `__init__.py`.
-   Efort: **S**.
+9. [x] `--rag` + env `CONSILIUM_RAG` (flag existent, env var nou pentru
+   default local fără să-l impună în CI).
 
 ## E. Dovadă (diferențiatorul pentru rol de eval pipelines)
 
-10. `eval_rag.py` — set mic etichetat (query → chunk/run așteptat), măsori recall@k / MRR,
-    before vs. after. De ce: îți dă numere care închid definitiv întrebarea „chiar înțelegi
-    RAG?". Efort: **M**.
+10. [x] `scripts/eval_rag.py` — set etichetat manual (n=19 perechi
+    query → fișier sursă așteptat, verificate contra conținutului real din
+    README.md/CLAUDE.md/requirements/*.md, nu fabricate), măsoară recall@k
+    și MRR pe o colecție ChromaDB efemeră (nu ~/.consilium/chroma/). Raportează
+    ca fracție + tabel per-query, nu procent agregat brut (per Deming).
+    Rulare manuală: `python scripts/eval_rag.py` — rezultat curent real:
+    11/19, MRR 0.456 (nu un test CI, e o măsurătoare).
 
-## Ordine recomandată (cale MVP)
-
-`4 → 5 → 6` (fixuri rapide) → `1 → 2` (doc-RAG, miezul) → `10` (dovezi cu numere) →
-`7 → 3 → 8 → 9` (rafinări).
-
-**Guardrail de scop:** A (doc-RAG) e o zi de lucru, nu o după-amiază — nu-l subestima. Restul
-sunt felii mici, bifabile una câte una.
+**Guardrail de scop:** A (doc-RAG) a fost o zi de lucru, nu o după-amiază.
