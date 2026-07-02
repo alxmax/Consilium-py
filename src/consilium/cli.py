@@ -2,8 +2,12 @@ from __future__ import annotations
 # implements: CPYBUS-CLI-001
 # implements: CPYEXT-LTL-001
 
+import fnmatch
 import json
+import os
+import re
 import subprocess
+import sys
 
 import click
 
@@ -12,6 +16,167 @@ from consilium.errors import is_provider_error, provider_error_message
 from consilium.explain import explain_module
 from consilium.models import DEFAULT_MODEL as _DEFAULT_MODEL
 from consilium.models import Report
+
+
+_FILE_PATH_RE = re.compile(r"[\w./\\-]+\.[a-zA-Z]{1,5}")
+
+# Conservative fixed cap for assembled directory context. Not adaptive per
+# model/provider — very large payloads may still hit provider- or
+# claude-cli-specific limits (arg length / reload behavior).
+MAX_CONTEXT_TOKENS = 50_000
+
+# Never read these into a prompt, regardless of git-tracked status (defense in
+# depth over git's exclude rules).
+_SECRET_GLOBS = (
+    ".env", ".env.*", "*.env", "*.env.*",
+    "*.pem", "*.key", "*.p12", "*.crt",
+    "*credentials*.json", "*service-account*.json",
+    "id_rsa*", "id_ed25519*", "id_ecdsa*", "id_dsa*",
+    ".netrc", ".npmrc", ".pypirc",
+)
+
+# Directories the non-git fallback walk never descends into.
+_SKIP_DIRS = {".git", "node_modules", "__pycache__", ".venv", "venv", "dist", "build"}
+
+
+def _detect_context_files(proposal: str) -> list[str]:
+    """Find file paths mentioned in the proposal text that exist on disk."""
+    seen: list[str] = []
+    for match in _FILE_PATH_RE.findall(proposal):
+        if os.path.isfile(match) and match not in seen:
+            seen.append(match)
+    return seen
+
+
+def _is_secret_file(name: str) -> bool:
+    return any(fnmatch.fnmatch(name, glob) for glob in _SECRET_GLOBS)
+
+
+def _has_null_byte(path: str) -> bool:
+    """Binary sniff: True if the first 8 KiB contains a NUL byte (or is unreadable)."""
+    try:
+        with open(path, "rb") as f:
+            return b"\x00" in f.read(8192)
+    except OSError:
+        return True
+
+
+def _list_dir_files(path: str) -> list[str]:
+    """Discover context files under a directory.
+
+    Prefers `git ls-files` (tracked + untracked-but-not-ignored) so only
+    version-controlled content is read; falls back to a filtered os.walk with a
+    null-byte binary sniff for non-git targets. Secret/credential files are
+    excluded from both paths.
+    """
+    files: list[str] = []
+    result = None
+    try:
+        result = subprocess.run(
+            ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z", "--", "."],
+            cwd=path, capture_output=True, text=True,
+        )
+    except OSError:
+        result = None
+    if result is not None and result.returncode == 0 and result.stdout:
+        for rel in result.stdout.split("\0"):
+            if not rel:
+                continue
+            full = os.path.join(path, rel)
+            if os.path.isfile(full):
+                files.append(full)
+    else:
+        for root, dirs, names in os.walk(path):
+            dirs[:] = [d for d in dirs if d not in _SKIP_DIRS and not d.endswith(".egg-info")]
+            for name in names:
+                full = os.path.join(root, name)
+                if not _has_null_byte(full):
+                    files.append(full)
+
+    files = [f for f in files if not _is_secret_file(os.path.basename(f))]
+    return sorted(files)
+
+
+def _read_directory(path: str) -> str:
+    """Assemble a directory's text files into a single context blob, aborting
+    (never truncating) once the estimated token count exceeds the fixed cap."""
+    files = _list_dir_files(path)
+    text = ""
+    for f in files:
+        try:
+            with open(f, encoding="utf-8") as fh:
+                text += f"\n\n--- {f} ---\n" + fh.read()
+        except (UnicodeDecodeError, OSError):
+            continue
+        # Stop reading once already over cap — a directory with a few huge
+        # files shouldn't force reading every remaining one into memory first.
+        if len(text) // 4 > MAX_CONTEXT_TOKENS:
+            break
+
+    estimated_tokens = len(text) // 4
+    if estimated_tokens > MAX_CONTEXT_TOKENS:
+        largest = sorted(files, key=lambda p: os.path.getsize(p), reverse=True)[:3]
+        hint = "\n  Largest files: " + ", ".join(largest) if largest else ""
+        raise click.ClickException(
+            f"Directory context too large: {path} is ~{estimated_tokens} tokens "
+            f"(cap {MAX_CONTEXT_TOKENS}).\n"
+            "  Narrow scope by passing specific files with -c instead." + hint
+        )
+    return text
+
+
+def _read_files(paths: list[str]) -> str:
+    ctx_text = ""
+    for path in paths:
+        if os.path.isdir(path):
+            # Directory context stays bounded: only git-tracked (or, for non-git
+            # targets, non-binary walked) files, minus secrets, aborting past
+            # MAX_CONTEXT_TOKENS. This extends "context = files you name" to "a
+            # directory of files" — not codebase-wide scanning; `consilium
+            # check` remains the separate diff-review path.
+            ctx_text += _read_directory(path)
+            continue
+        if not os.path.isfile(path):
+            raise click.ClickException(f"--context file not found: {path}")
+        with open(path, encoding="utf-8") as f:
+            ctx_text += f"\n\n--- {path} ---\n" + f.read()
+    return ctx_text
+
+
+_NO_CONTEXT_HINT = (
+    "  No context provided — reasoning on proposal text alone.\n"
+    "  Use --context <file> or 'consilium check' for a real diff."
+)
+
+
+def _resolve_context(proposal: str) -> str:
+    """No --context flag given: try to detect files mentioned in the proposal
+    and confirm with the user before using them as context; otherwise warn
+    that the deliberation is running on the proposal text alone."""
+    if not sys.stdin.isatty():
+        click.echo(_NO_CONTEXT_HINT, err=True)
+        return ""
+
+    candidates = _detect_context_files(proposal)
+    paths: list[str] = []
+    if candidates:
+        click.echo(f"  Detected file(s) in proposal: {', '.join(candidates)}")
+        answer = click.prompt("  Use as context? [y/n/other path]", default="y").strip()
+        answer_l = answer.lower()
+        if answer_l in ("y", "yes"):
+            paths = candidates
+        elif answer_l in ("n", "no"):
+            paths = []
+        else:
+            paths = [p for p in re.split(r"[,\s]+", answer) if os.path.isfile(p)]
+            if not paths:
+                click.echo(f"  '{answer}' is not a valid file — proceeding without context.", err=True)
+
+    if paths:
+        return _read_files(paths)
+
+    click.echo(_NO_CONTEXT_HINT, err=True)
+    return ""
 
 
 def _deliberate_or_exit(proposal: str, **kwargs) -> Report:
@@ -127,11 +292,15 @@ def deliberate_cmd(
       consilium deliberate "Add a /health endpoint"
       consilium deliberate "Refactor auth" --mode dialectic
       consilium deliberate "Add caching" -c api.py -c models.py
+      consilium deliberate "Review module" -c src/consilium/
+
+    \b
+    A directory passed to -c assembles its git-tracked text files into the
+    prompt (experimental; no guarantee the voices find real bugs — use a
+    linter/static analyzer for that). Aborts past a conservative ~50k-token
+    cap rather than truncating.
     """
-    ctx_text = ""
-    for path in context:
-        with open(path, encoding="utf-8") as f:
-            ctx_text += f"\n\n--- {path} ---\n" + f.read()
+    ctx_text = _read_files(list(context)) if context else _resolve_context(proposal)
 
     report = _deliberate_or_exit(
         proposal,
