@@ -106,8 +106,9 @@ def serve_cmd(port: int, host: str, model: str, no_browser: bool) -> None:
               help="Model string. Use 'provider/model' for LiteLLM.")
 @click.option("--skeptic-can-override", is_flag=True, default=False,
               help="Allow Skeptic to downgrade verdict (dialectic only).")
-@click.option("--rag", is_flag=True, default=False,
-              help="Inject similar past runs as context (requires consilium-py[rag]).")
+@click.option("--rag", is_flag=True, default=False, envvar="CONSILIUM_RAG",
+              help="Inject similar past runs + ingested docs as context "
+                   "(requires consilium-py[rag]). Default: CONSILIUM_RAG env var.")
 @click.option("--output", type=click.Choice(["text", "json"]), default="text")
 def deliberate_cmd(
     proposal: str,
@@ -240,6 +241,28 @@ def index_cmd() -> None:
         raise click.ClickException(str(e))
     count = index_all_runs()
     click.echo(f"Indexed {count} run(s) into ~/.consilium/chroma/")
+
+
+# implements: CPYEXT-DOCRAG-001
+@main.command("ingest")
+@click.argument("path")
+def ingest_cmd(path: str) -> None:
+    """Chunk and index a document or directory for RAG retrieval (requires consilium-py[rag]).
+
+    \b
+    Examples:
+      consilium ingest README.md
+      consilium ingest docs/
+    """
+    try:
+        from consilium.rag import ingest_path  # noqa: PLC0415
+    except ImportError as e:
+        raise click.ClickException(str(e))
+    try:
+        count = ingest_path(path)
+    except FileNotFoundError as e:
+        raise click.ClickException(str(e))
+    click.echo(f"Indexed {count} chunk(s) from {path} into ~/.consilium/chroma/")
 
 
 def _print_report(report: Report, output: str) -> None:
