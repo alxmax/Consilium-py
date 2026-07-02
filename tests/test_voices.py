@@ -46,6 +46,30 @@ class TestExtractJson(unittest.TestCase):
         self.assertEqual(self.fn(text), {"sketch": "a { b }"})
 
 
+class TestClaudeCliDispatch(unittest.TestCase):
+    """The claude-cli backend must honor the user's model choice: bare
+    'claude-cli' runs sonnet, 'claude-cli:<name>' forwards <name> to the
+    subprocess (regression: the model was silently hard-coded to sonnet)."""
+
+    def _dispatch(self, model: str) -> list[str]:
+        from consilium.voices import call_voice
+
+        proc = MagicMock(returncode=0, stdout="ok")
+        with patch("subprocess.run", return_value=proc) as run, \
+                patch("shutil.which", return_value="claude"):
+            call_voice("generator", "system", "user", model)
+        return run.call_args[0][0]
+
+    def test_default_model_is_sonnet(self):
+        argv = self._dispatch("claude-cli")
+        self.assertIn("--model", argv)
+        self.assertEqual(argv[argv.index("--model") + 1], "sonnet")
+
+    def test_submodel_is_forwarded(self):
+        argv = self._dispatch("claude-cli:opus")
+        self.assertEqual(argv[argv.index("--model") + 1], "opus")
+
+
 class TestLoadPrompt(unittest.TestCase):
     """Regression (audit 2026-07-01): prompts lived at the repo root, outside
     the wheel — every non-editable install crashed on the first load_prompt().

@@ -56,7 +56,7 @@ def extract_json(text: str) -> dict[str, Any]:
 
 
 def call_voice(_voice_name: str, system_prompt: str, user_msg: str, model: str) -> str:
-    if model == "claude-cli":
+    if model == "claude-cli" or model.startswith("claude-cli:"):
         # Dispatch each voice through the Claude Code CLI (`claude -p`), reusing the
         # local subscription auth instead of an API key. Note: each call reloads the
         # full Claude Code harness, so this is a demo/no-key path — NOT the lean
@@ -64,6 +64,10 @@ def call_voice(_voice_name: str, system_prompt: str, user_msg: str, model: str) 
         import shutil  # noqa: PLC0415
         import subprocess  # noqa: PLC0415
 
+        # "claude-cli" runs Sonnet; "claude-cli:<name>" picks any model alias the
+        # local CLI accepts (e.g. claude-cli:opus) — the user's choice is honored
+        # instead of silently pinned.
+        cli_model = model.partition(":")[2] or "sonnet"
         claude_bin = shutil.which("claude") or "claude"  # resolve .CMD/.exe shim on Windows
         # The <SUBAGENT-STOP> header tells the global using-superpowers skill to
         # skip its "invoke skills before responding" loop, so the voice gets a
@@ -74,7 +78,7 @@ def call_voice(_voice_name: str, system_prompt: str, user_msg: str, model: str) 
         full = f"<SUBAGENT-STOP>\nYou are a subagent dispatched to perform a specific evaluation. Respond with plain text only — no tool calls.\n</SUBAGENT-STOP>\n\n{system_prompt}\n\n{user_msg}"
         proc = subprocess.run(
             [
-                claude_bin, "--model", "sonnet", "--output-format", "text",
+                claude_bin, "--model", cli_model, "--output-format", "text",
                 "--max-turns", "1",
                 "--tools", "none",
                 "-p",

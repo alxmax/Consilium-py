@@ -14,8 +14,8 @@ consilium deliberate "Add Redis caching to the API"
 
 Three AI voices deliberate on your proposal in a structured pipeline:
 
-1. **Conservator** — assesses risk, reversibility, and regression potential
-2. **Generator** — proposes 3–5 approaches with trade-off analysis  
+1. **Generator** — proposes 3–5 approaches with trade-off analysis; runs first, blind to any risk framing (anti-anchoring)
+2. **Conservator** — assesses risk, reversibility, and regression potential of the Generator's candidates
 3. **Control** — audits for technical correctness and glossary compliance
 
 The aggregator produces a verdict: `GO`, `MODIFY`, `STOP`, `BLOCK`, or `ESCALATE`.
@@ -145,7 +145,7 @@ Requires the `[server]` extra. Runs the three-voice deliberation over HTTP — u
 pip install 'consilium-py[server]'
 
 # Easiest: consilium serve picks a free port, opens a browser to the HTML UI
-export ANTHROPIC_API_KEY=sk-ant-...
+export OPENROUTER_API_KEY=sk-or-...
 consilium serve
 
 # Or run uvicorn directly for more control (no auto port/browser handling)
@@ -266,7 +266,7 @@ actually holds, so a 3.11 user can't hit a version-specific break that only 3.12
 - `OPENROUTER_API_KEY` — required for the default OpenRouter models
 - `ANTHROPIC_API_KEY` — required when using bare Anthropic/Claude model names (e.g. `claude-sonnet-4-6`)
 - Provider-specific env vars for other providers via LiteLLM (`OPENAI_API_KEY`, `GEMINI_API_KEY`, etc.)
-- No API key needed when using `--model claude-cli` — requires the [Claude Code CLI](https://claude.ai/code) installed and authenticated
+- No API key needed when using `--model claude-cli` — requires the [Claude Code CLI](https://claude.ai/code) installed and authenticated. Defaults to Sonnet; pick another Claude model with `--model claude-cli:opus`
 
 ## Related
 
