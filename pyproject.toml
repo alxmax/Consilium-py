@@ -6,7 +6,20 @@ build-backend = "hatchling.build"
 name = "consilium-py"
 version = "0.1.0"
 description = "Dialectical code-change deliberation as a Python package"
+readme = "README.md"
 requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [{ name = "Schipor Alexandru", email = "schipor.alexandru123@gmail.com" }]
+keywords = ["llm", "agentic", "multi-agent", "deliberation", "code-review", "rag", "cli"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: Other/Proprietary License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Quality Assurance",
+]
 dependencies = [
     "anthropic>=0.25.0",
     "litellm>=1.0",
@@ -14,6 +27,11 @@ dependencies = [
     "click>=8.1",
     "pydantic>=2.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/alxmax/Consilium-py"
+Repository = "https://github.com/alxmax/Consilium-py"
+Issues = "https://github.com/alxmax/Consilium-py/issues"
 
 [project.optional-dependencies]
 dev = ["pyright", "pytest"]

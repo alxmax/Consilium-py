@@ -645,13 +645,15 @@ curl -X POST localhost:8123/deliberate \
         <span class="chip"><span class="dot"></span>Artifact Registry</span>
         <span class="chip"><span class="dot"></span>Secret Manager</span>
         <span class="chip"><span class="dot"></span>GitHub Actions</span>
+        <span class="chip"><span class="dot"></span>GHCR</span>
+        <span class="chip"><span class="dot"></span>PyPI (OIDC)</span>
         <span class="chip"><span class="dot"></span>Dependabot</span>
       </div>
 
       <div class="reveal" style="margin-top:40px">
         <div class="feature">
-          <div class="feature__h">CI on every change<span class="req">.github/workflows</span></div>
-          <div class="feature__b">A GitHub Actions job runs <code>terraform fmt&nbsp;-check</code>, <code>init</code>, and <code>validate</code> on every pull request that touches <code>infra/</code> — no cloud credentials needed, so it’s always green and catches broken config before merge. Actions are pinned to commit SHAs and kept current by Dependabot, closing the supply-chain gap that version tags leave open.</div>
+          <div class="feature__h">CI/CD on every change<span class="req">.github/workflows</span></div>
+          <div class="feature__b">GitHub Actions runs the full <code>pytest</code> suite (3.11 + 3.12) and the requirement-drift gate on every push, and validates the Terraform on every <code>infra/</code> change. On a version tag it publishes the package to PyPI via OIDC trusted publishing and pushes a container image to GHCR. Every action is pinned to a commit SHA and kept current by Dependabot — closing the supply-chain gap that floating version tags leave open.</div>
         </div>
         <div class="feature">
           <div class="feature__h">Secrets, done right<span class="req">Secret Manager</span></div>
