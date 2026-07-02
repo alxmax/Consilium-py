@@ -55,6 +55,40 @@ class TestDeliberateCmd(unittest.TestCase):
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertIn("extra context content", captured.get("context", ""))
 
+    def test_no_rag_overrides_env_default(self):
+        """CONSILIUM_RAG=1 makes --rag default on; --no-rag must force it off."""
+        from consilium.cli import main
+        runner = CliRunner()
+        captured = {}
+
+        def capture(proposal, **kwargs):
+            captured.update(kwargs)
+            return _go_report()
+
+        with patch("consilium.cli.deliberate", side_effect=capture):
+            result = runner.invoke(
+                main, ["deliberate", "test", "--no-rag"], env={"CONSILIUM_RAG": "1"}
+            )
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertFalse(captured.get("rag"), "--no-rag must win over CONSILIUM_RAG=1")
+
+    def test_rag_env_default_on(self):
+        """CONSILIUM_RAG=1 turns rag on without an explicit flag."""
+        from consilium.cli import main
+        runner = CliRunner()
+        captured = {}
+
+        def capture(proposal, **kwargs):
+            captured.update(kwargs)
+            return _go_report()
+
+        with patch("consilium.cli.deliberate", side_effect=capture):
+            result = runner.invoke(
+                main, ["deliberate", "test"], env={"CONSILIUM_RAG": "1"}
+            )
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertTrue(captured.get("rag"), "CONSILIUM_RAG=1 should enable rag")
+
     def test_context_file_utf8_non_ascii(self):
         """--context reads UTF-8 files; non-ASCII content must not be mangled
         by the platform's default encoding (Windows: cp1252)."""

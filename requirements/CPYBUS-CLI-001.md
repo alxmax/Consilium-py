@@ -19,7 +19,7 @@ Exposes the deliberation engine as a terminal command (`consilium`) with two sub
 - `--mode` shall accept `sequential` (default), `dialectic`, `trias`, and `langgraph`.
 - `--model` shall default to `claude-sonnet-4-6` and also read the `CONSILIUM_MODEL` env var (Click `envvar=`), making `export CONSILIUM_MODEL=openai/gpt-4o` equivalent to `--model openai/gpt-4o`.
 - `--skeptic-can-override` (flag, Dialectic only) shall set `skeptic_can_override=True`.
-- `--rag` (flag) shall pass `rag=True` to `deliberate()`, enabling RAG context injection.
+- `--rag/--no-rag` (boolean pair, default from the `CONSILIUM_RAG` env var) shall control whether `rag=True` is passed to `deliberate()`. `--no-rag` shall force RAG off even when `CONSILIUM_RAG` is set, so an env-var default is overridable per invocation in both directions.
 - `consilium check --diff <ref>` shall run `git diff <ref>`, use the diff as context, and deliberate with the proposal `"Review this diff (git diff <ref>)"`.
 - `consilium check` (no `--diff`) shall run `git diff --staged` and deliberate on staged changes.
 - If the diff is empty, `check` shall exit with an error ("No diff found.") rather than calling the API. Deliberating an empty diff has no meaningful output.
