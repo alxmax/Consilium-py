@@ -114,6 +114,27 @@ class TestRunSequential(unittest.TestCase):
         with patch("consilium.modes.sequential.call_voice", side_effect=lambda *_a, **_kw: next(outputs)):
             return run_sequential(DeliberationInput(proposal=proposal))
 
+    def test_generator_runs_first_and_blind(self):
+        """Pins the Generator-first anti-anchoring order: the Generator is called
+        before the other voices and never sees their output (a contributor
+        'fixing' the order to match a stale doc must fail here)."""
+        from consilium.modes.sequential import run_sequential
+        from consilium.models import DeliberationInput
+
+        calls: list[tuple[str, str]] = []
+        outputs = {"generator": GEN_GO, "conservator": CONS_GO, "control": CTRL_GO}
+
+        def fake(voice, _system, user_msg, _model):
+            calls.append((voice, user_msg))
+            return outputs[voice]
+
+        with patch("consilium.modes.sequential.call_voice", side_effect=fake):
+            run_sequential(DeliberationInput(proposal="Add health check"))
+
+        self.assertEqual([v for v, _ in calls], ["generator", "conservator", "control"])
+        self.assertNotIn("CONSERVATOR OUTPUT", calls[0][1])
+        self.assertNotIn("GENERATOR OUTPUT", calls[0][1])
+
     def test_go_verdict(self):
         report = self._run(CONS_GO, GEN_GO, CTRL_GO)
         self.assertEqual(report.verdict, "GO")

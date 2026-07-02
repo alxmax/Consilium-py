@@ -20,7 +20,7 @@ python -m pytest tests/test_sequential.py::TestRunSequential::test_go_verdict
 # Type check
 pyright src/
 
-# CLI (requires ANTHROPIC_API_KEY or CONSILIUM_MODEL)
+# CLI (requires OPENROUTER_API_KEY for the default model; CONSILIUM_MODEL selects another provider/model)
 consilium deliberate "Add health check endpoint"
 consilium deliberate "Refactor auth" --mode dialectic --output json
 consilium check                          # deliberate on staged git diff
