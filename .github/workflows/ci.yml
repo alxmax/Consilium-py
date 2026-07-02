@@ -37,3 +37,5 @@ jobs:
           python-version: "3.12"
       - name: Requirement traceability drift gate
         run: python scripts/reqmap.py gate
+      - name: Requirement map freshness
+        run: python -X utf8 scripts/reqmap.py map --check
