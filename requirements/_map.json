@@ -235,7 +235,7 @@
       "members": [
         {
           "role": "implements",
-          "loc": "src/consilium/cli.py:216"
+          "loc": "src/consilium/cli.py:194"
         },
         {
           "role": "implements",
@@ -261,9 +261,10 @@
       "contract": [
         "`parse_skeptic(skeptic_out, raw_text)` shall map a raw Skeptic JSON output to `(SkepticObjection, VoiceOutput)`:",
         "`can_object` coerced to `bool`; `objection.concrete_concerns` → list; `objection.failure_mode`/`objection.addressable` → optional.",
+        "**Validation gate** (per `skeptic.md`): a `can_object=true` objection with fewer than 2 `concrete_concerns` AND no `quoted_scenario` is discarded — `can_object` flips to `false`, the objection fields are cleared, and a discard note is appended to `notes`. A vague objection can never downgrade a verdict.",
         "The `VoiceOutput` vote is `GO` when `can_object` is false, `STOP` when `addressable=\"unaddressable\"`, else `MODIFY`.",
         "Score: `0.9` (no objection), `0.5` (objection), `0.2` (unaddressable objection).",
-        "`challenge(chosen_id, inp)` shall build a Skeptic input containing only the chosen id + summary (the proposal), the proposal as `success_criterion`, the optional context, then call the `skeptic` voice once and return `parse_skeptic(...)`.",
+        "`challenge(chosen_id, inp, *, summary=None, sketch=None, rationale=None)` shall build a Skeptic input containing the chosen candidate's id, summary, sketch, and rationale when provided (falling back to the proposal / a generic rationale), the proposal as `success_criterion`, the optional context, then call the `skeptic` voice once and return `parse_skeptic(...)`. Callers (Dialectic, Trias) pass the chosen candidate's fields from the aggregated `Report`.",
         "The Skeptic dispatch shall use `call_voice` / `load_prompt` from `voices.py` — no separate model client."
       ],
       "verify": [],
@@ -313,7 +314,7 @@
       "title": "Voice dispatch — prompt loading, API call, JSON extraction",
       "intent": "",
       "contract": [
-        "`load_prompt(name)` shall read `prompts/voices/{name}.md` relative to the package root and return its full text.",
+        "`load_prompt(name)` shall read `prompts/voices/{name}.md` from inside the installed `consilium` package (via `importlib.resources`), so prompts ship in the wheel and non-editable installs work.",
         "`call_voice(_voice_name, system_prompt, user_msg, model)` shall call `client.messages.create` with `max_tokens=4096` and return the text of the first `TextBlock` in the response. If no `TextBlock` is present, it returns an empty string. When `\"/\" in model`, it routes to `litellm.completion()` instead (see CPYEXT-LTL-001); the Anthropic path is unchanged. No retry logic exists — retry is the caller's responsibility.",
         "`extract_json(text)` shall return the first valid JSON object found in `text`. It checks, in order: (1) a fenced code block ` ```json … ``` ` or ` ``` … ``` `; (2) the first `{…}` span in the raw text matched by brace depth. On failure it returns `{}`.",
         "The Anthropic client shall be created lazily (on first call) so importing the package does not require `ANTHROPIC_API_KEY` to be set at import time."
@@ -324,12 +325,12 @@
         "`src/consilium/voices.py`"
       ],
       "acc": [
-        "Given a prompt file exists at `prompts/voices/conservator.md`, when `load_prompt(\"conservator\")` is called, then the returned string equals the file's content.",
+        "Given a prompt file exists at `src/consilium/prompts/voices/conservator.md`, when `load_prompt(\"conservator\")` is called, then the returned string equals the file's content.",
         "Given a response containing ` ```json {\"key\": 1} ``` `, when `extract_json` is called, then `{\"key\": 1}` is returned.",
         "Given a response containing `{\"key\": 1}` with no fence, when `extract_json` is called, then `{\"key\": 1}` is returned.",
         "Given a response with no JSON, when `extract_json` is called, then `{}` is returned."
       ],
-      "accept": "- Given a prompt file exists at `prompts/voices/conservator.md`, when `load_prompt(\"conservator\")` is called, then the returned string equals the file's content.\n- Given a response containing ` ```json {\"key\": 1} ``` `, when `extract_json` is called, then `{\"key\": 1}` is returned.\n- Given a response containing `{\"key\": 1}` with no fence, when `extract_json` is called, then `{\"key\": 1}` is returned.\n- Given a response with no JSON, when `extract_json` is called, then `{}` is returned.",
+      "accept": "- Given a prompt file exists at `src/consilium/prompts/voices/conservator.md`, when `load_prompt(\"conservator\")` is called, then the returned string equals the file's content.\n- Given a response containing ` ```json {\"key\": 1} ``` `, when `extract_json` is called, then `{\"key\": 1}` is returned.\n- Given a response containing `{\"key\": 1}` with no fence, when `extract_json` is called, then `{\"key\": 1}` is returned.\n- Given a response with no JSON, when `extract_json` is called, then `{}` is returned.",
       "input": "",
       "output": "",
       "desc": "",
@@ -360,6 +361,67 @@
       "test_exempt": null,
       "milestone": null,
       "priority": "",
+      "risks": []
+    },
+    {
+      "id": "CPYEXT-DOCRAG-001",
+      "layer": "feature",
+      "status": "confirmed",
+      "area": "CPYEXT",
+      "title": "Doc-RAG — ingest reference documents for retrieval",
+      "intent": "",
+      "contract": [
+        "`consilium ingest <path>` (file or directory) shall chunk and index every file under `path` whose suffix is one of `.md`, `.txt`, `.py`, `.rst`, using `_chunk_text()` (default 1200-char windows, 200-char overlap) and upsert each chunk into the same `consilium_runs_v2` collection used by CPYEXT-RAG-001, tagged `metadata={\"kind\": \"doc\", \"source\": <relative path>, \"chunk_index\": <int>}`.",
+        "Files exceeding 1 MB shall be skipped with a stderr message (not silently truncated or embedded in full).",
+        "Files that fail UTF-8 decoding (binary content misdetected by extension) shall be skipped with a stderr message, not embedded as garbage.",
+        "A resolved file path that falls outside the resolved ingestion root shall be skipped (guards against a symlink escaping the intended corpus directory). `consilium ingest` is a trusted-operator command — this guards against accidental misuse, not a malicious caller.",
+        "`retrieve_docs(proposal, k=3, max_distance=0.55)` shall query the same collection restricted to `kind=\"doc\"` and return formatted, source-cited snippets (`[source#chunk_index] \"...\"`) for hits within `max_distance`.",
+        "`build_rag_context(proposal)` (CPYEXT-RAG-001) shall include a `RELEVANT DOCS:` block from `retrieve_docs()` alongside `SIMILAR PAST DECISIONS:`, each present only if non-empty.",
+        "No document corpus ships pre-committed to the repo (no pinned/versioned corpus) — nothing is ingested until a user runs `consilium ingest`. A natural first corpus is the repo's own docs (`README.md`, `CLAUDE.md`, `requirements/*.md`), used as the fixture for `eval_rag.py` (see CPYSCRIPT-EVALRAG-001) but not committed as pre-built embeddings."
+      ],
+      "verify": [],
+      "notes": [
+        "Corpus pinning/versioning (fixing the embedding model + committing a corpus for fully reproducible retrieval) is deliberately out of scope for this first version — there's no corpus to pin yet, and pinning nothing is premature. Revisit once real ingest usage exists.",
+        "Cross-encoder reranking and a pluggable embedding backend (`CONSILIUM_EMBED` env var) are deliberately out of scope — both are optimizations for a corpus/scale that doesn't exist yet (see TODO.md for the deferred rationale)."
+      ],
+      "current_impl": [
+        "`src/consilium/rag.py` (`ingest_path`, `_chunk_text`, `retrieve_docs`)",
+        "`src/consilium/cli.py` (`consilium ingest` command)"
+      ],
+      "acc": [
+        "Given a markdown file, when `consilium ingest <path>` is run, then `retrieve_docs()` on a query matching its content returns a snippet citing that file as `source`.",
+        "Given a file larger than 1 MB, when ingested, then it is skipped and a message is printed to stderr; no chunk is indexed for it.",
+        "Given a binary file with a `.md` extension, when ingested, then it is skipped (UTF-8 decode failure) and a message is printed to stderr.",
+        "Given a directory with mixed ingestable and non-ingestable files, when ingested, then only files matching the supported suffixes are chunked and indexed.",
+        "Given a `kind=\"run\"` entry and a `kind=\"doc\"` entry both similar to a query, when `build_rag_context()` is called, then both a `SIMILAR PAST DECISIONS:` and a `RELEVANT DOCS:` block appear, each containing only its own kind."
+      ],
+      "accept": "- Given a markdown file, when `consilium ingest <path>` is run, then `retrieve_docs()` on a query matching its content returns a snippet citing that file as `source`.\n- Given a file larger than 1 MB, when ingested, then it is skipped and a message is printed to stderr; no chunk is indexed for it.\n- Given a binary file with a `.md` extension, when ingested, then it is skipped (UTF-8 decode failure) and a message is printed to stderr.\n- Given a directory with mixed ingestable and non-ingestable files, when ingested, then only files matching the supported suffixes are chunked and indexed.\n- Given a `kind=\"run\"` entry and a `kind=\"doc\"` entry both similar to a query, when `build_rag_context()` is called, then both a `SIMILAR PAST DECISIONS:` and a `RELEVANT DOCS:` block appear, each containing only its own kind.",
+      "input": "",
+      "output": "",
+      "desc": "",
+      "deps": [
+        "CPYEXT-RAG-001"
+      ],
+      "used_by": [],
+      "satisfies": [],
+      "satisfied_by": [],
+      "members": [
+        {
+          "role": "implements",
+          "loc": "src/consilium/cli.py:246"
+        },
+        {
+          "role": "implements",
+          "loc": "src/consilium/rag.py:3"
+        },
+        {
+          "role": "tested-by",
+          "loc": "tests/test_rag.py:3"
+        }
+      ],
+      "test_exempt": null,
+      "milestone": null,
+      "priority": "could-have",
       "risks": []
     },
     {
@@ -498,27 +560,32 @@
       "intent": "",
       "contract": [
         "`save_run(run_id, inp, report)` shall persist `{id, timestamp, proposal, context, report}` to `~/.consilium/runs/<run_id>.json`. The proposal text must be inside the record (not only in the filename).",
-        "`index(run_id, inp, report)` shall upsert the run into a ChromaDB collection at `~/.consilium/chroma/`, using the proposal text as the embedded document.",
-        "`retrieve(proposal, k=3, max_distance=0.35)` shall return at most `k` formatted snippets whose cosine distance to the query is ≤ `max_distance`. If the index is empty, print a user-visible message to stderr and return `[]`. If no run qualifies (all distances > threshold), return `[]`.",
-        "`build_rag_context(proposal)` shall call `retrieve()` and return a `SIMILAR PAST DECISIONS:` block, or `\"\"` if empty.",
+        "`index(run_id, inp, report)` shall upsert the run into a ChromaDB collection `consilium_runs_v2` at `~/.consilium/chroma/`, using `metadata={\"kind\": \"run\", ...}` and `proposal + context` (not proposal alone) as the embedded document.",
+        "The collection shall be created with `metadata={\"hnsw:space\": \"cosine\"}` — explicit, not ChromaDB's unstated default (L2/squared-L2).",
+        "`retrieve(proposal, k=3, max_distance=0.55)` shall return at most `k` formatted snippets whose cosine distance to the query is ≤ `max_distance`, restricted to `kind=\"run\"` entries with `confidence >= 0.5` and `verdict not in (STOP, BLOCK)` — a design default (failed/low-confidence runs are not \"similar past guidance\"), not an empirically-validated quality claim. If the index is empty, print a user-visible message to stderr and return `[]`. If no run qualifies (all distances > threshold, or all excluded by the quality filter), return `[]`.",
+        "`0.55` is calibrated, not arbitrary — see `tests/test_rag.py::TestMaxDistanceCalibration`, which asserts known-similar proposal pairs land ≤ 0.55 and known-dissimilar pairs land > 0.55 against the real embedding function.",
+        "`build_rag_context(proposal)` shall call `retrieve()` and `retrieve_docs()` (see CPYEXT-DOCRAG-001) and return `SIMILAR PAST DECISIONS:` / `RELEVANT DOCS:` blocks (each only if non-empty), joined by a blank line, or `\"\"` if both are empty.",
         "When `chromadb` is not installed, any call into the RAG module shall raise `ImportError` with a `pip install consilium-py[rag]` hint — not silently skip.",
         "The RAG context block, when non-empty, shall be prepended to `inp.context` before voices run, ahead of any user-supplied `--context` content.",
-        "The ChromaDB store is global (`~/.consilium/chroma/`). A per-project store (`.consilium/chroma/` in the repo) would be more isolated but requires project-root detection; global is simpler and sufficient for the current scope."
+        "The ChromaDB store is global (`~/.consilium/chroma/`). A per-project store (`.consilium/chroma/` in the repo) would be more isolated but requires project-root detection; global is simpler and sufficient for the current scope.",
+        "Migration note: `consilium_runs` (the pre-cosine, default-distance collection) is superseded by `consilium_runs_v2`, not migrated automatically — mixing L2 and cosine vectors in one index would make distances meaningless. If the new collection is empty and the old one has data, `retrieve()`/`retrieve_docs()` print an upgrade-specific stderr hint (distinct from the generic empty-index message) pointing at `consilium index` to rebuild."
       ],
       "verify": [],
       "notes": [],
       "current_impl": [
         "`src/consilium/rag.py`",
         "`src/consilium/__init__.py` (rag param + persistence wiring)",
-        "`src/consilium/cli.py` (--rag flag, `consilium index` command)"
+        "`src/consilium/cli.py` (--rag flag / CONSILIUM_RAG env var, `consilium index` command)"
       ],
       "acc": [
         "Given a seeded index with one run (verdict GO, proposal \"Add health check\"), when `retrieve(\"Add health endpoint\")` is called, then the returned snippet contains \"GO\" and the proposal text.",
-        "Given `max_distance=0.35` and a query with no similar run, when `retrieve()` is called, then it returns `[]` without raising.",
+        "Given `max_distance=0.55` and a query with no similar run, when `retrieve()` is called, then it returns `[]` without raising.",
+        "Given a run with `verdict=\"STOP\"` or `confidence<0.5`, when `retrieve()` is called with a query that would otherwise match it, then it is excluded from the results.",
         "Given `chromadb` not installed, when `index()` or `retrieve()` is called, then `ImportError` is raised with the install hint.",
-        "Given an empty index, when `retrieve()` is called, then a message is printed to stderr and `[]` is returned."
+        "Given an empty index, when `retrieve()` is called, then a message is printed to stderr and `[]` is returned.",
+        "Given the legacy `consilium_runs` collection has data and `consilium_runs_v2` is empty, when `retrieve()`/`retrieve_docs()` is called, then an upgrade-specific stderr hint naming both collections is printed."
       ],
-      "accept": "- Given a seeded index with one run (verdict GO, proposal \"Add health check\"), when `retrieve(\"Add health endpoint\")` is called, then the returned snippet contains \"GO\" and the proposal text.\n- Given `max_distance=0.35` and a query with no similar run, when `retrieve()` is called, then it returns `[]` without raising.\n- Given `chromadb` not installed, when `index()` or `retrieve()` is called, then `ImportError` is raised with the install hint.\n- Given an empty index, when `retrieve()` is called, then a message is printed to stderr and `[]` is returned.",
+      "accept": "- Given a seeded index with one run (verdict GO, proposal \"Add health check\"), when `retrieve(\"Add health endpoint\")` is called, then the returned snippet contains \"GO\" and the proposal text.\n- Given `max_distance=0.55` and a query with no similar run, when `retrieve()` is called, then it returns `[]` without raising.\n- Given a run with `verdict=\"STOP\"` or `confidence<0.5`, when `retrieve()` is called with a query that would otherwise match it, then it is excluded from the results.\n- Given `chromadb` not installed, when `index()` or `retrieve()` is called, then `ImportError` is raised with the install hint.\n- Given an empty index, when `retrieve()` is called, then a message is printed to stderr and `[]` is returned.\n- Given the legacy `consilium_runs` collection has data and `consilium_runs_v2` is empty, when `retrieve()`/`retrieve_docs()` is called, then an upgrade-specific stderr hint naming both collections is printed.",
       "input": "",
       "output": "",
       "desc": "",
@@ -526,7 +593,9 @@
         "CPYBUS-API-001",
         "CPYBUS-VOI-001"
       ],
-      "used_by": [],
+      "used_by": [
+        "CPYEXT-DOCRAG-001"
+      ],
       "satisfies": [],
       "satisfied_by": [],
       "members": [
@@ -668,13 +737,14 @@
       "title": "Trias deliberation mode — 3 parallel personalities + post-vote Skeptic",
       "intent": "",
       "contract": [
-        "`run_trias(inp, skeptic_can_override=False)` shall dispatch `_run_personality` for each of the three personalities concurrently via `asyncio.to_thread` + `asyncio.gather`.",
-        "Each personality runs its internal Sequential pipeline in Generator-first order (Generator → Conservator → Control), with its lens (`prompts/voices/{name}_lens.md`) prepended to each voice system prompt, separated from the core prompt by `\\n\\n---\\n\\n`.",
+        "`run_trias(inp, skeptic_can_override=False)` shall first run one neutral Generator (`_neutral_generator`) to produce the shared candidate set, then dispatch `_run_personality(name, inp, shared_gen)` for each of the three personalities concurrently via `asyncio.to_thread` + `asyncio.gather`.",
+        "Each personality runs its internal Sequential pipeline in Generator-first order (Generator → Conservator → Control), with its lens (`prompts/voices/{name}_lens.md`) prepended to each voice system prompt, separated from the core prompt by `\\n\\n---\\n\\n`. The personality's Generator message includes the shared candidates with the instruction to keep the exact ids and select `preferred` among them.",
+        "**Categorical veto propagation.** If any personality's `Report` has `verdict == \"BLOCK\"` (glossary_fail, irreversibility, not_a_proposal, voice_unparseable), `run_trias` shall return that report (with `mode=\"trias\"`) without voting — safety vetoes are not out-votable, and the propagated `reason` lets `deliberate()` convert `not_a_proposal` to `ANSWER`.",
         "After all three complete, the function shall perform a majority vote over the three `chosen` values:",
         "If ≥ 2 personalities chose the same candidate → that candidate wins.",
         "Otherwise → no winner.",
         "Vote confidence shall follow: `3-0` → 0.95, `2-1` → 0.75, `2-0` → 0.70. No majority → verdict `ESCALATE`, confidence 0.30.",
-        "When a winner exists, the verdict and recommendation are taken from the winning personality's `Report`.",
+        "When a winner exists, the verdict and recommendation are taken from the winning personality's `Report`, and its `chosen_summary`/`chosen_sketch`/`chosen_rationale` are propagated to the trias `Report`.",
         "**Post-vote Skeptic.** When (and only when) a winner exists, one Skeptic (`CPYBUS-SKEPTIC-001`) shall challenge the winning candidate. Its objection is attached as `report.skeptic` and a `voice=\"skeptic\"` `VoiceOutput` is appended.",
         "**Advisory** (`skeptic_can_override=False`, default): the vote verdict, confidence, and `chosen` are unchanged regardless of the objection; an advisory note may be appended to the recommendation.",
         "**Override** (`skeptic_can_override=True`): a `can_object=True` objection downgrades the verdict — `in_place`+`GO`→`MODIFY`; `requires_redesign`→`MODIFY`, confidence ≤ 0.5; `unaddressable`→`BLOCK`, confidence 0.1. `chosen` is never changed.",
@@ -714,7 +784,7 @@
       "members": [
         {
           "role": "implements",
-          "loc": "src/consilium/modes/trias.py:7"
+          "loc": "src/consilium/modes/trias.py:11"
         },
         {
           "role": "tested-by",
@@ -816,7 +886,7 @@
       "members": [
         {
           "role": "implements",
-          "loc": "src/consilium/cli.py:69"
+          "loc": "src/consilium/cli.py:46"
         },
         {
           "role": "tested-by",
@@ -857,6 +927,10 @@
     [
       "CPYBUS-SKEPTIC-001",
       "CPYBUS-VOI-001"
+    ],
+    [
+      "CPYEXT-DOCRAG-001",
+      "CPYEXT-RAG-001"
     ],
     [
       "CPYEXT-LG-001",

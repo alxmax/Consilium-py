@@ -1,7 +1,7 @@
 ---
-generated: 2026-06-30 21:20
-nodes: 14
-edges: 25
+generated: 2026-07-02 14:36
+nodes: 15
+edges: 26
 ---
 
 # Requirement Map
@@ -21,6 +21,7 @@ graph LR
     CPYBUS_VOI_001["Voice dispatch — prompt loading, API call, JSON extraction<br><small>CPYBUS-VOI-001</small>"]
   end
   subgraph sg_CPYEXT["CPYEXT"]
+    CPYEXT_DOCRAG_001["Doc-RAG — ingest reference documents for retrieval<br><small>CPYEXT-DOCRAG-001</small>"]
     CPYEXT_LG_001["LangGraph orchestration mode<br><small>CPYEXT-LG-001</small>"]
     CPYEXT_LTL_001["Provider-agnostic voice dispatch via LiteLLM<br><small>CPYEXT-LTL-001</small>"]
     CPYEXT_RAG_001["RAG context injection from past deliberation runs<br><small>CPYEXT-RAG-001</small>"]
@@ -37,6 +38,7 @@ graph LR
   CPYBUS_API_001 --> CPYMOD_SEQ_001
   CPYBUS_API_001 --> CPYMOD_DIA_001
   CPYBUS_API_001 --> CPYMOD_TRI_001
+  CPYEXT_DOCRAG_001 --> CPYEXT_RAG_001
   CPYMOD_DIA_001 --> CPYMOD_SEQ_001
   style CPYBUS_AGG_001 stroke-width:3px
   style CPYBUS_API_001 stroke-width:3px
@@ -72,8 +74,8 @@ graph LR
   f_tests_test_cli_io_py_4["tests/test_cli_io.py:4"]
   CPYBUS_CLI_001 -->|tested-by| f_tests_test_cli_io_py_4
   CPYBUS_EXPLAIN_001["Codebase explanation — explain_module and the explain CLI command<br><small>CPYBUS-EXPLAIN-001</small>"]
-  f_src_consilium_cli_py_216["src/consilium/cli.py:216"]
-  CPYBUS_EXPLAIN_001 -->|implements| f_src_consilium_cli_py_216
+  f_src_consilium_cli_py_194["src/consilium/cli.py:194"]
+  CPYBUS_EXPLAIN_001 -->|implements| f_src_consilium_cli_py_194
   f_src_consilium_explain_py_2["src/consilium/explain.py:2"]
   CPYBUS_EXPLAIN_001 -->|implements| f_src_consilium_explain_py_2
   f_tests_test_explain_py_2["tests/test_explain.py:2"]
@@ -88,6 +90,13 @@ graph LR
   CPYBUS_VOI_001 -->|implements| f_src_consilium_voices_py_2
   f_tests_test_voices_py_2["tests/test_voices.py:2"]
   CPYBUS_VOI_001 -->|tested-by| f_tests_test_voices_py_2
+  CPYEXT_DOCRAG_001["Doc-RAG — ingest reference documents for retrieval<br><small>CPYEXT-DOCRAG-001</small>"]
+  f_src_consilium_cli_py_246["src/consilium/cli.py:246"]
+  CPYEXT_DOCRAG_001 -->|implements| f_src_consilium_cli_py_246
+  f_src_consilium_rag_py_3["src/consilium/rag.py:3"]
+  CPYEXT_DOCRAG_001 -->|implements| f_src_consilium_rag_py_3
+  f_tests_test_rag_py_3["tests/test_rag.py:3"]
+  CPYEXT_DOCRAG_001 -->|tested-by| f_tests_test_rag_py_3
   CPYEXT_LG_001["LangGraph orchestration mode<br><small>CPYEXT-LG-001</small>"]
   f_src_consilium_modes_langgraph_mode_py_2["src/consilium/modes/langgraph_mode.py:2"]
   CPYEXT_LG_001 -->|implements| f_src_consilium_modes_langgraph_mode_py_2
@@ -120,8 +129,8 @@ graph LR
   f_tests_test_sequential_py_2["tests/test_sequential.py:2"]
   CPYMOD_SEQ_001 -->|tested-by| f_tests_test_sequential_py_2
   CPYMOD_TRI_001["Trias deliberation mode — 3 parallel personalities + post-vote Skeptic<br><small>CPYMOD-TRI-001</small>"]
-  f_src_consilium_modes_trias_py_7["src/consilium/modes/trias.py:7"]
-  CPYMOD_TRI_001 -->|implements| f_src_consilium_modes_trias_py_7
+  f_src_consilium_modes_trias_py_11["src/consilium/modes/trias.py:11"]
+  CPYMOD_TRI_001 -->|implements| f_src_consilium_modes_trias_py_11
   f_tests_test_trias_py_2["tests/test_trias.py:2"]
   CPYMOD_TRI_001 -->|tested-by| f_tests_test_trias_py_2
   CPYSRV_HTTP_001["HTTP server — POST /deliberate and the / web UI<br><small>CPYSRV-HTTP-001</small>"]
@@ -130,8 +139,8 @@ graph LR
   f_tests_test_server_py_2["tests/test_server.py:2"]
   CPYSRV_HTTP_001 -->|tested-by| f_tests_test_server_py_2
   CPYSRV_SERVE_001["serve CLI command — local web UI launcher<br><small>CPYSRV-SERVE-001</small>"]
-  f_src_consilium_cli_py_69["src/consilium/cli.py:69"]
-  CPYSRV_SERVE_001 -->|implements| f_src_consilium_cli_py_69
+  f_src_consilium_cli_py_46["src/consilium/cli.py:46"]
+  CPYSRV_SERVE_001 -->|implements| f_src_consilium_cli_py_46
   f_tests_test_cli_py_3["tests/test_cli.py:3"]
   CPYSRV_SERVE_001 -->|tested-by| f_tests_test_cli_py_3
 ```
@@ -143,7 +152,7 @@ _Area-level coupling: one box per area (N caps), arrow A->B = some capability in
 ```mermaid
 graph LR
   a_CPYBUS["CPYBUS<br><small>6 caps</small>"]
-  a_CPYEXT["CPYEXT<br><small>3 caps</small>"]
+  a_CPYEXT["CPYEXT<br><small>4 caps</small>"]
   a_CPYMOD["CPYMOD<br><small>3 caps</small>"]
   a_CPYSRV["CPYSRV<br><small>2 caps</small>"]
   a_CPYBUS --> a_CPYMOD

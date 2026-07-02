@@ -2,31 +2,28 @@
   "_schema": 1,
   "members": {
     "CPYBUS-AGG-001": {
-      "src/consilium/aggregator.py": "03aeb804f8f7a3f2988767e3af15e69ff31a692a81f0a36a995c4304d970e516"
+      "src/consilium/aggregator.py": "07fc97d35a3405f34b37ff2b5c7bfd2fda47ba977bf75bd5248dfb2d994a2734"
     },
     "CPYBUS-EXPLAIN-001": {
       "src/consilium/explain.py": "56bdf45ab315ead372c7b6d06be8af24737c70fdfbd70a4ff11615f6e0b72437"
     },
     "CPYBUS-SKEPTIC-001": {
-      "src/consilium/skeptic.py": "1d6b6b5ab1631a4fb0369c8458837632331475841e6da3d6be7b2243038afcc4"
+      "src/consilium/skeptic.py": "9b48ca00e70631ee3c5635cc4d14c1385df4c8314323bc9ac09c68b1c12ae853"
     },
     "CPYEXT-LG-001": {
       "src/consilium/modes/langgraph_mode.py": "f773d11cfe55b45fab2a7fa337f6067cdbeeafd8e832be5d90e7f569b423f5a7"
     },
-    "CPYEXT-RAG-001": {
-      "src/consilium/rag.py": "dbcdc06c59b0aa8c004e1444b254e1b0085dd5fac431b18ba49760de9fccb1df"
-    },
     "CPYMOD-DIA-001": {
-      "src/consilium/modes/dialectic.py": "ae1812e273d84d94b48cc4a76a3cace094bef84ab7e8266cd27fb5a416605e9e"
+      "src/consilium/modes/dialectic.py": "48edca45d549c45cbb833579bd5b033041e09ec6b70598bbfe5a3994e87c02b8"
     },
     "CPYMOD-SEQ-001": {
       "src/consilium/modes/sequential.py": "de17587b0ae387950c989adba9f92c0e24bd3efe1e7e793e73fe385729d85203"
     },
     "CPYMOD-TRI-001": {
-      "src/consilium/modes/trias.py": "ed21e85ae90fcb08c53f15b8dab0352e5720e2a6404ab86b142342d8d73a5589"
+      "src/consilium/modes/trias.py": "740dbae1a32eb6d11185194f89ae82fa35fc01c91492ca7de21389131cd6ff87"
     },
     "CPYSRV-HTTP-001": {
-      "src/consilium/server.py": "89f20aca2c2a92ccddf673b35cc8c4481aaa82ad93ed6143fbf998695dde4d32"
+      "src/consilium/server.py": "aa5b7cf67a67b14533fa5babd00efc01cf49bc8aa0cb53d96ba2c0f0f6d1b3da"
     }
   }
 }
