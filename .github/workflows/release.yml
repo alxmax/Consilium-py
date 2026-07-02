@@ -24,6 +24,8 @@ jobs:
           python -m build
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # v1.14.0
+        with:
+          skip-existing: true # a re-run of an already-published version is a no-op, not a failure
 
   ghcr:
     name: Build & push image to GHCR
