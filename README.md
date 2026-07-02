@@ -37,7 +37,7 @@ export OPENROUTER_API_KEY=sk-or-...
 | Extra | What it adds | Install |
 |---|---|---|
 | `[server]` | FastAPI HTTP server — `POST /deliberate` over HTTP | `pip install 'consilium-py[server]'` |
-| `[rag]` | ChromaDB context injection — retrieves similar past decisions | `pip install 'consilium-py[rag]'` |
+| `[rag]` | ChromaDB context injection — retrieves similar past decisions **and ingested reference docs** ([details](#rag--document-ingestion)) | `pip install 'consilium-py[rag]'` |
 | `[langgraph]` | LangGraph orchestration mode replacing the sequential pipeline | `pip install 'consilium-py[langgraph]'` |
 
 ## Deliberation modes
@@ -98,9 +98,44 @@ report = deliberate(
     model="gemini/gemini-2.0-flash",
 )
 
-# RAG: inject similar past decisions as context (requires [rag] extra)
+# RAG: inject similar past decisions + ingested docs as context (requires [rag] extra)
 report = deliberate("Add rate limiting", rag=True)
 ```
+
+### RAG & document ingestion
+
+The `[rag]` extra pulls two kinds of context into a deliberation, each retrieved
+by cosine similarity from a local ChromaDB store (`~/.consilium/chroma/`):
+
+- **`SIMILAR PAST DECISIONS`** — your own past deliberation runs. Low-confidence
+  and `STOP`/`BLOCK` runs are excluded by design (a failed past call isn't guidance).
+- **`RELEVANT DOCS`** — chunks of reference documents you've ingested (coding
+  standards, an architecture note, an API guide), cited by source in the report.
+  So Control can check a change against *"conform CODING_STANDARDS.md"*.
+
+```bash
+pip install 'consilium-py[rag]'
+
+consilium index                 # index your past runs (~/.consilium/runs/)
+consilium ingest docs/          # chunk + index a doc or directory into the corpus
+consilium ingest CODING.md      # …one file at a time works too
+
+consilium deliberate "Add a cache layer" --rag     # inject both blocks
+```
+
+`ingest` chunks each `.md`/`.txt`/`.py`/`.rst` file (1200-char windows, 200
+overlap), skipping binaries, files over 1 MB, and symlinks that escape the target.
+Re-ingesting a file replaces its chunks (no stale orphans). Retrieved docs are
+deduplicated by source, so one big file can't crowd out the others.
+
+**Toggling:** `--rag` / `--no-rag`, defaulting from the `CONSILIUM_RAG` env var —
+so you can set `CONSILIUM_RAG=1` locally and still force `--no-rag` for a single run.
+
+> **On determinism:** RAG is **off by default** on purpose. Injecting past runs
+> makes a deliberation's output depend on your history, which is at odds with the
+> project's reproducibility goal. The `docs` path (a fixed, committed corpus) is the
+> one that could ever be made default-safe — pinning/versioning a corpus is noted
+> as future work, not done yet.
 
 ### HTTP API
 

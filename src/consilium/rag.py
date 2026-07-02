@@ -112,7 +112,7 @@ def index(run_id: str, inp: "DeliberationInput", report: "Report") -> None:
     )
 
 
-def _query(text: str, *, kind: str, extra_where: dict | None, k: int, max_distance: float):
+def _query(text: str, *, kind: str, extra_where: list[dict] | None, k: int, max_distance: float):
     """Shared query path for both past-run and ingested-doc retrieval."""
     col = _get_collection()
     count = col.count()
@@ -127,9 +127,11 @@ def _query(text: str, *, kind: str, extra_where: dict | None, k: int, max_distan
 
     from chromadb.api.types import IncludeEnum  # noqa: PLC0415
 
-    where: dict = {"kind": kind}
-    if extra_where:
-        where = {"$and": [where, extra_where]}
+    # A single flat $and with all clauses — not a nested $and-in-$and. The flat
+    # form is guaranteed supported across the chromadb range we pin; nested
+    # logical operators are not universally accepted.
+    clauses: list[dict] = [{"kind": kind}, *(extra_where or [])]
+    where: dict = clauses[0] if len(clauses) == 1 else {"$and": clauses}
 
     results = col.query(
         query_texts=[text],
@@ -163,12 +165,10 @@ def retrieve(proposal: str, k: int = _TOP_K, max_distance: float = _MAX_DISTANCE
     """
     hits = _query(
         proposal, kind="run", k=k, max_distance=max_distance,
-        extra_where={
-            "$and": [
-                {"confidence": {"$gte": _MIN_CONFIDENCE}},
-                {"verdict": {"$nin": list(_EXCLUDED_VERDICTS)}},
-            ]
-        },
+        extra_where=[
+            {"confidence": {"$gte": _MIN_CONFIDENCE}},
+            {"verdict": {"$nin": list(_EXCLUDED_VERDICTS)}},
+        ],
     )
     snippets = []
     for doc, meta, _dist in hits:
@@ -178,13 +178,24 @@ def retrieve(proposal: str, k: int = _TOP_K, max_distance: float = _MAX_DISTANCE
 
 
 def retrieve_docs(proposal: str, k: int = _TOP_K, max_distance: float = _MAX_DISTANCE) -> list[str]:
-    """Return formatted, source-cited snippets of ingested doc chunks similar to proposal."""
-    hits = _query(proposal, kind="doc", k=k, max_distance=max_distance, extra_where=None)
-    snippets = []
-    for doc, meta, _dist in hits:
-        source = meta.get("source", "?")
+    """Return up to `k` source-cited snippets of ingested doc chunks similar to proposal.
+
+    Deduplicated by source: at most one chunk (the nearest) per file, so `k`
+    diverse sources surface instead of `k` chunks that could all come from one
+    large document. Over-fetches, then keeps the best chunk per source.
+    """
+    hits = _query(proposal, kind="doc", k=k * 4, max_distance=max_distance, extra_where=None)
+    snippets: list[str] = []
+    seen: set[str] = set()
+    for doc, meta, _dist in hits:  # hits are ordered nearest-first
+        source = str(meta.get("source", "?"))
+        if source in seen:
+            continue
+        seen.add(source)
         chunk_index = meta.get("chunk_index", 0)
         snippets.append(f"[{source}#{chunk_index}] {doc[:200]!r}")
+        if len(snippets) >= k:
+            break
     return snippets
 
 
@@ -295,6 +306,11 @@ def ingest_path(path: str) -> int:
         chunks = _chunk_text(text)
         if not chunks:
             continue
+
+        # Drop any previous chunks for this source before re-indexing, so a file
+        # that now has fewer chunks doesn't leave stale orphans behind (upsert
+        # alone only overwrites matching ids, never removes surplus ones).
+        col.delete(where={"source": source})
 
         ids = [f"doc:{source}:{i}" for i in range(len(chunks))]
         metadatas = [{"kind": "doc", "source": source, "chunk_index": i} for i in range(len(chunks))]

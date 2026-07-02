@@ -106,9 +106,10 @@ def serve_cmd(port: int, host: str, model: str, no_browser: bool) -> None:
               help="Model string. Use 'provider/model' for LiteLLM.")
 @click.option("--skeptic-can-override", is_flag=True, default=False,
               help="Allow Skeptic to downgrade verdict (dialectic only).")
-@click.option("--rag", is_flag=True, default=False, envvar="CONSILIUM_RAG",
+@click.option("--rag/--no-rag", default=False, envvar="CONSILIUM_RAG",
               help="Inject similar past runs + ingested docs as context "
-                   "(requires consilium-py[rag]). Default: CONSILIUM_RAG env var.")
+                   "(requires consilium-py[rag]). Default from CONSILIUM_RAG env "
+                   "var; --no-rag forces it off even when the env var is set.")
 @click.option("--output", type=click.Choice(["text", "json"]), default="text")
 def deliberate_cmd(
     proposal: str,

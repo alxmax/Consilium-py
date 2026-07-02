@@ -1,5 +1,5 @@
 ---
-generated: 2026-07-02 14:36
+generated: 2026-07-02 16:22
 nodes: 15
 edges: 26
 ---
@@ -74,8 +74,8 @@ graph LR
   f_tests_test_cli_io_py_4["tests/test_cli_io.py:4"]
   CPYBUS_CLI_001 -->|tested-by| f_tests_test_cli_io_py_4
   CPYBUS_EXPLAIN_001["Codebase explanation — explain_module and the explain CLI command<br><small>CPYBUS-EXPLAIN-001</small>"]
-  f_src_consilium_cli_py_194["src/consilium/cli.py:194"]
-  CPYBUS_EXPLAIN_001 -->|implements| f_src_consilium_cli_py_194
+  f_src_consilium_cli_py_195["src/consilium/cli.py:195"]
+  CPYBUS_EXPLAIN_001 -->|implements| f_src_consilium_cli_py_195
   f_src_consilium_explain_py_2["src/consilium/explain.py:2"]
   CPYBUS_EXPLAIN_001 -->|implements| f_src_consilium_explain_py_2
   f_tests_test_explain_py_2["tests/test_explain.py:2"]
@@ -91,8 +91,8 @@ graph LR
   f_tests_test_voices_py_2["tests/test_voices.py:2"]
   CPYBUS_VOI_001 -->|tested-by| f_tests_test_voices_py_2
   CPYEXT_DOCRAG_001["Doc-RAG — ingest reference documents for retrieval<br><small>CPYEXT-DOCRAG-001</small>"]
-  f_src_consilium_cli_py_246["src/consilium/cli.py:246"]
-  CPYEXT_DOCRAG_001 -->|implements| f_src_consilium_cli_py_246
+  f_src_consilium_cli_py_247["src/consilium/cli.py:247"]
+  CPYEXT_DOCRAG_001 -->|implements| f_src_consilium_cli_py_247
   f_src_consilium_rag_py_3["src/consilium/rag.py:3"]
   CPYEXT_DOCRAG_001 -->|implements| f_src_consilium_rag_py_3
   f_tests_test_rag_py_3["tests/test_rag.py:3"]

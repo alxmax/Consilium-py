@@ -18,7 +18,8 @@ Extends the existing past-run RAG index (CPYEXT-RAG-001) so it can also retrieve
 - Files exceeding 1 MB shall be skipped with a stderr message (not silently truncated or embedded in full).
 - Files that fail UTF-8 decoding (binary content misdetected by extension) shall be skipped with a stderr message, not embedded as garbage.
 - A resolved file path that falls outside the resolved ingestion root shall be skipped (guards against a symlink escaping the intended corpus directory). `consilium ingest` is a trusted-operator command — this guards against accidental misuse, not a malicious caller.
-- `retrieve_docs(proposal, k=3, max_distance=0.55)` shall query the same collection restricted to `kind="doc"` and return formatted, source-cited snippets (`[source#chunk_index] "..."`) for hits within `max_distance`.
+- Re-ingesting a file shall first delete that source's existing chunks (`col.delete(where={"source": <source>})`) before upserting the new ones, so a file that now produces fewer chunks does not leave stale orphans in the index (plain upsert overwrites matching ids but never removes surplus ones).
+- `retrieve_docs(proposal, k=3, max_distance=0.55)` shall query the same collection restricted to `kind="doc"` and return at most `k` formatted, source-cited snippets (`[source#chunk_index] "..."`) for hits within `max_distance`, **deduplicated by source** — at most the nearest chunk per file, so `k` distinct sources surface rather than `k` chunks from one large document.
 - `build_rag_context(proposal)` (CPYEXT-RAG-001) shall include a `RELEVANT DOCS:` block from `retrieve_docs()` alongside `SIMILAR PAST DECISIONS:`, each present only if non-empty.
 - No document corpus ships pre-committed to the repo (no pinned/versioned corpus) — nothing is ingested until a user runs `consilium ingest`. A natural first corpus is the repo's own docs (`README.md`, `CLAUDE.md`, `requirements/*.md`), used as the fixture for `eval_rag.py` (see CPYSCRIPT-EVALRAG-001) but not committed as pre-built embeddings.
 
@@ -37,6 +38,8 @@ None — doc is unambiguous.
 - Given a file larger than 1 MB, when ingested, then it is skipped and a message is printed to stderr; no chunk is indexed for it.
 - Given a binary file with a `.md` extension, when ingested, then it is skipped (UTF-8 decode failure) and a message is printed to stderr.
 - Given a directory with mixed ingestable and non-ingestable files, when ingested, then only files matching the supported suffixes are chunked and indexed.
+- Given a file re-ingested after an edit, when `ingest_path` runs, then `col.delete(where={"source": <source>})` is called before the upsert so no stale chunk survives.
+- Given three chunks from one file and one from another among the nearest hits, when `retrieve_docs(k=3)` is called, then it returns two snippets (one per source), not three from the same file.
 - Given a `kind="run"` entry and a `kind="doc"` entry both similar to a query, when `build_rag_context()` is called, then both a `SIMILAR PAST DECISIONS:` and a `RELEVANT DOCS:` block appear, each containing only its own kind.
 
 ## WHERE — Current implementation

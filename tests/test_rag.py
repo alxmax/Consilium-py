@@ -95,7 +95,12 @@ class TestRetrieve(unittest.TestCase):
         with _patched(col):
             rag.retrieve("Add health endpoint")
         where = col.query.call_args.kwargs["where"]
-        self.assertEqual(where["$and"][0], {"kind": "run"})
+        # Flat $and (kind + confidence + verdict), never a nested $and-in-$and.
+        self.assertIn("$and", where)
+        clauses = where["$and"]
+        self.assertEqual(clauses[0], {"kind": "run"})
+        self.assertEqual(len(clauses), 3)
+        self.assertFalse(any("$and" in c for c in clauses), "no nested $and")
 
 
 class TestRetrieveDocs(unittest.TestCase):
@@ -114,6 +119,29 @@ class TestRetrieveDocs(unittest.TestCase):
             result = rag.retrieve_docs("What is consilium?")
         self.assertEqual(len(result), 1)
         self.assertIn("README.md", result[0])
+
+    def test_dedupes_by_source(self):
+        """Three chunks from one file + one from another → 2 sources, not 4."""
+        from consilium import rag
+        col = _mock_collection(
+            count=4,
+            query_results={
+                "ids": [["doc:a.md:0", "doc:a.md:1", "doc:a.md:2", "doc:b.md:0"]],
+                "documents": [["a-chunk0", "a-chunk1", "a-chunk2", "b-chunk0"]],
+                "metadatas": [[
+                    {"kind": "doc", "source": "a.md", "chunk_index": 0},
+                    {"kind": "doc", "source": "a.md", "chunk_index": 1},
+                    {"kind": "doc", "source": "a.md", "chunk_index": 2},
+                    {"kind": "doc", "source": "b.md", "chunk_index": 0},
+                ]],
+                "distances": [[0.1, 0.15, 0.2, 0.25]],
+            },
+        )
+        with _patched(col):
+            result = rag.retrieve_docs("query", k=3)
+        self.assertEqual(len(result), 2)  # one per source
+        self.assertTrue(any("a.md" in s for s in result))
+        self.assertTrue(any("b.md" in s for s in result))
 
 
 class TestChromadbImportError(unittest.TestCase):
@@ -259,6 +287,17 @@ class TestIngestPath(unittest.TestCase):
                 count = rag.ingest_path(str(f))
         self.assertEqual(count, 0)
 
+    def test_reingest_deletes_stale_chunks(self):
+        """Re-indexing a file must drop its previous chunks before upserting."""
+        from consilium import rag
+        col = _mock_collection()
+        with tempfile.TemporaryDirectory() as tmp:
+            f = Path(tmp) / "notes.md"
+            f.write_text("some content", encoding="utf-8")
+            with patch("consilium.rag._get_collection", return_value=col):
+                rag.ingest_path(str(f))
+        col.delete.assert_called_once_with(where={"source": "notes.md"})
+
     def test_missing_path_raises(self):
         from consilium import rag
         with self.assertRaises(FileNotFoundError):
@@ -326,6 +365,49 @@ class TestMaxDistanceCalibration(unittest.TestCase):
                     )
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
+
+
+@unittest.skipUnless(_HAS_CHROMADB, "chromadb not installed — pip install 'consilium-py[rag]'")
+class TestFilterIntegration(unittest.TestCase):
+    """Exercise the real where-filter on an ephemeral ChromaDB collection.
+
+    The mocked tests verify the where dict's *shape*; this verifies chromadb
+    actually accepts and applies the flat $and (kind + confidence + verdict)
+    and the doc/run kind split — no false confidence from a mock.
+    """
+
+    def test_filter_runs_on_real_chromadb(self):
+        import shutil
+        from consilium import rag
+        from consilium.models import DeliberationInput, Report
+
+        tmp = tempfile.mkdtemp()
+        try:
+            with patch("consilium.rag._CHROMA_DIR", Path(tmp)):
+                def mk(verdict, conf):
+                    return Report(verdict=verdict, confidence=conf,
+                                  recommendation="add a health check endpoint",
+                                  voices=[], mode="sequential")
+                inp = DeliberationInput(proposal="add a health check endpoint")
+                rag.index("good", inp, mk("GO", 0.9))       # kept
+                rag.index("blocked", inp, mk("STOP", 0.9))  # excluded by verdict
+                rag.index("weak", inp, mk("GO", 0.2))       # excluded by confidence
+                rag.ingest_path(str(_write(tmp, "guide.md", "how to add a health check endpoint")))
+
+                runs = rag.retrieve("add a health endpoint", k=5)
+                self.assertTrue(runs, "the GO/high-confidence run should be retrieved")
+                self.assertTrue(all("STOP" not in s for s in runs), "STOP excluded")
+
+                docs = rag.retrieve_docs("add a health check endpoint", k=5)
+                self.assertTrue(any("guide.md" in d for d in docs), "ingested doc retrieved")
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _write(root: str, name: str, text: str) -> str:
+    p = Path(root) / name
+    p.write_text(text, encoding="utf-8")
+    return str(p)
 
 
 if __name__ == "__main__":
