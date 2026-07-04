@@ -74,7 +74,10 @@ def _list_dir_files(path: str) -> list[str]:
     try:
         result = subprocess.run(
             ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z", "--", "."],
-            cwd=path, capture_output=True, text=True,
+            # encoding="utf-8": git emits UTF-8 pathnames; without it text=True
+            # decodes via cp1252 on Windows and non-ASCII-named files mis-decode,
+            # so os.path.isfile() below drops them silently from the context.
+            cwd=path, capture_output=True, text=True, encoding="utf-8",
         )
     except OSError:
         result = None
@@ -336,11 +339,17 @@ def check_cmd(
       consilium check --diff HEAD~1    review last commit
       consilium check --diff main      review branch vs main
     """
+    # encoding="utf-8": the diff content becomes the deliberation context the
+    # voices read; without it text=True mangles non-ASCII via cp1252 on Windows.
+    # errors="replace" keeps the CLI from crashing on a non-UTF-8 source byte
+    # (cp1252 never raised, so strict utf-8 would be a regression).
     if diff:
-        result = subprocess.run(["git", "diff", diff], capture_output=True, text=True)
+        result = subprocess.run(["git", "diff", diff], capture_output=True,
+                                text=True, encoding="utf-8", errors="replace")
         proposal = f"Review this diff (git diff {diff})"
     else:
-        result = subprocess.run(["git", "diff", "--staged"], capture_output=True, text=True)
+        result = subprocess.run(["git", "diff", "--staged"], capture_output=True,
+                                text=True, encoding="utf-8", errors="replace")
         proposal = "Review staged changes"
 
     if result.returncode != 0:
