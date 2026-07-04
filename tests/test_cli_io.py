@@ -102,5 +102,44 @@ class TestProviderError(unittest.TestCase):
         self.assertNotIn("Traceback", result.output)
 
 
+class TestCheckDiffEncoding(unittest.TestCase):
+    """`consilium check` must not mangle non-ASCII diff content on Windows.
+
+    Exercises the real `git diff` subprocess (the fix is its encoding="utf-8"
+    kwarg); only the API-calling deliberate() is mocked so the context it
+    receives can be inspected. On a cp1252 box, the pre-fix code decoded the
+    UTF-8 diff via cp1252 and 'café'/'ț' arrived mangled.
+    """
+
+    def test_non_ascii_diff_context_preserved(self):
+        import subprocess
+        from pathlib import Path
+
+        runner = CliRunner()
+        captured = {}
+
+        def fake_deliberate(_proposal, context="", **_kwargs):
+            captured["context"] = context
+            return GO_WITH_SKETCH
+
+        with runner.isolated_filesystem():
+            def g(*args):
+                subprocess.run(["git", *args], check=True, capture_output=True)
+
+            g("init")
+            g("config", "user.email", "t@example.com")
+            g("config", "user.name", "t")
+            Path("note.txt").write_text("plain\n", encoding="utf-8")
+            g("add", ".")
+            g("commit", "-m", "init")
+            Path("note.txt").write_text("café résumé ț ș ă\n", encoding="utf-8")
+            g("add", ".")
+            with patch("consilium.cli.deliberate", side_effect=fake_deliberate):
+                result = runner.invoke(main, ["check", "--diff", "HEAD"])
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("café", captured.get("context", ""))
+
+
 if __name__ == "__main__":
     unittest.main()
