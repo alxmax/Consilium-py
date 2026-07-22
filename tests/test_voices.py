@@ -45,6 +45,17 @@ class TestExtractJson(unittest.TestCase):
         text = '```json\n{"sketch": "a { b }"}\n```'
         self.assertEqual(self.fn(text), {"sketch": "a { b }"})
 
+    def test_literal_newline_in_string_value(self):
+        """`claude -p` voices emit literal newlines inside string values (e.g. a
+        multi-line Control `notes`/`assert`). strict JSON rejects those, collapsing
+        the voice to {}; extract_json must tolerate them (strict=False)."""
+        text = '{"verdicts": [{"id": "x", "notes": "line one\nline two"}]}'
+        self.assertEqual(self.fn(text), {"verdicts": [{"id": "x", "notes": "line one\nline two"}]})
+
+    def test_literal_newline_in_fenced_string(self):
+        text = '```json\n{"notes": "a\nb"}\n```'
+        self.assertEqual(self.fn(text), {"notes": "a\nb"})
+
 
 class TestClaudeCliDispatch(unittest.TestCase):
     """The claude-cli backend must honor the user's model choice: bare
@@ -68,6 +79,45 @@ class TestClaudeCliDispatch(unittest.TestCase):
     def test_submodel_is_forwarded(self):
         argv = self._dispatch("claude-cli:opus")
         self.assertEqual(argv[argv.index("--model") + 1], "opus")
+
+    def test_json_voice_retries_on_prose_drift(self):
+        """`claude -p` intermittently answers a JSON voice in prose. A JSON voice
+        (generator) must retry until it gets a parseable object, then return it."""
+        from consilium.voices import call_voice
+
+        outs = [
+            MagicMock(returncode=0, stdout="**Verdict: STOP** — prose, no JSON here"),
+            MagicMock(returncode=0, stdout='```json\n{"candidates": []}\n```'),
+        ]
+        with patch("subprocess.run", side_effect=outs) as run, \
+                patch("shutil.which", return_value="claude"):
+            result = call_voice("generator", "system", "user", "claude-cli")
+        self.assertEqual(run.call_count, 2)              # retried once past the prose
+        self.assertIn('"candidates"', result)            # returned the parseable attempt
+
+    def test_prose_voice_is_never_retried(self):
+        """assistant/explain return prose by contract — they must NOT be JSON-retried
+        (that would loop on every valid plain answer)."""
+        from consilium.voices import call_voice
+
+        proc = MagicMock(returncode=0, stdout="Just a plain conversational reply.")
+        with patch("subprocess.run", return_value=proc) as run, \
+                patch("shutil.which", return_value="claude"):
+            result = call_voice("assistant", "system", "user", "claude-cli")
+        self.assertEqual(run.call_count, 1)              # no retry despite no JSON
+        self.assertEqual(result, "Just a plain conversational reply.")
+
+    def test_json_voice_gives_up_after_max_retries(self):
+        """If every attempt drifts to prose, return the last output (aggregator flags
+        it) rather than looping forever."""
+        from consilium.voices import call_voice
+
+        proc = MagicMock(returncode=0, stdout="never JSON")
+        with patch("subprocess.run", return_value=proc) as run, \
+                patch("shutil.which", return_value="claude"):
+            result = call_voice("control", "system", "user", "claude-cli")
+        self.assertEqual(run.call_count, 3)              # 1 + _CLI_JSON_RETRIES(2)
+        self.assertEqual(result, "never JSON")
 
 
 class TestLoadPrompt(unittest.TestCase):
