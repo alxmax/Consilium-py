@@ -29,11 +29,19 @@ def load_prompt(name: str) -> str:
 
 
 def extract_json(text: str) -> dict[str, Any]:
-    """Extract first JSON object from text, handling markdown fences."""
+    """Extract first JSON object from text, handling markdown fences.
+
+    strict=False is deliberate: `claude -p` voices routinely emit LITERAL newlines
+    (and tabs) inside string values — e.g. a multi-line `notes`/`assert` field in
+    the Control verdict — which strict JSON rejects, collapsing the whole voice to
+    {} ("unparseable") even though the structure is fine. strict=False accepts those
+    control chars as data; it never accepts anything a strict parse would reject as
+    malformed structure, so it only widens tolerance, never correctness.
+    """
     fence = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
     if fence:
         try:
-            return json.loads(fence.group(1))
+            return json.loads(fence.group(1), strict=False)
         except json.JSONDecodeError:
             pass
 
@@ -43,7 +51,7 @@ def extract_json(text: str) -> dict[str, Any]:
     # producing {}. raw_decode() uses the real JSON tokenizer, so it is
     # string-boundary aware; retry from each subsequent '{' if a given start
     # position isn't valid JSON (e.g. a brace in surrounding prose).
-    decoder = json.JSONDecoder()
+    decoder = json.JSONDecoder(strict=False)
     start = text.find("{")
     while start != -1:
         try:
@@ -53,6 +61,13 @@ def extract_json(text: str) -> dict[str, Any]:
             start = text.find("{", start + 1)
 
     return {}
+
+
+# Voices whose contract is a JSON object (parsed downstream by extract_json).
+# The `assistant` (plain_answer/short_response) and `explain` voices return prose
+# and must never be JSON-retried.
+_JSON_VOICES = frozenset({"generator", "conservator", "control", "skeptic"})
+_CLI_JSON_RETRIES = 2  # extra attempts (3 total) when a JSON voice drifts to prose
 
 
 def call_voice(_voice_name: str, system_prompt: str, user_msg: str, model: str) -> str:
@@ -75,19 +90,38 @@ def call_voice(_voice_name: str, system_prompt: str, user_msg: str, model: str) 
         # removes all built-in and MCP tools so Claude can't execute anything
         # from the prompt (anti-hijack), and with no tools available it never
         # burns turns on blocked attempts.
-        full = f"<SUBAGENT-STOP>\nYou are a subagent dispatched to perform a specific evaluation. Respond with plain text only — no tool calls.\n</SUBAGENT-STOP>\n\n{system_prompt}\n\n{user_msg}"
-        proc = subprocess.run(
-            [
-                claude_bin, "--model", cli_model, "--output-format", "text",
-                "--max-turns", "1",
-                "--tools", "none",
-                "-p",
-            ],
-            input=full, capture_output=True, text=True, encoding="utf-8", timeout=240,
-        )
-        if proc.returncode != 0:
-            raise RuntimeError(f"claude -p failed ({proc.returncode}): {proc.stderr[:300]}")
-        return proc.stdout
+        base = f"<SUBAGENT-STOP>\nYou are a subagent dispatched to perform a specific evaluation. Respond with plain text only — no tool calls.\n</SUBAGENT-STOP>\n\n{system_prompt}\n\n{user_msg}"
+        # `claude -p` (the full Claude Code harness, tuned to be conversational)
+        # intermittently answers a JSON voice in prose/markdown instead of the
+        # required schema (~10-25% per call). extract_json then yields {} and the
+        # aggregator collapses the whole run to BLOCK. Since a 3-voice run compounds
+        # this to ~30-50%, retry a JSON voice (only) when its output has no parseable
+        # object, nudging harder each time. Prose voices (assistant/explain) skip this.
+        expects_json = _voice_name in _JSON_VOICES
+        last_out = ""
+        for attempt in range(_CLI_JSON_RETRIES + 1):
+            full = base
+            if expects_json and attempt:
+                full += (
+                    "\n\nIMPORTANT: your previous reply was not valid JSON. Reply with "
+                    "ONLY the JSON object required for your role, inside a ```json fence — "
+                    "no prose, headings, or commentary before or after it."
+                )
+            proc = subprocess.run(
+                [
+                    claude_bin, "--model", cli_model, "--output-format", "text",
+                    "--max-turns", "1",
+                    "--tools", "none",
+                    "-p",
+                ],
+                input=full, capture_output=True, text=True, encoding="utf-8", timeout=240,
+            )
+            if proc.returncode != 0:
+                raise RuntimeError(f"claude -p failed ({proc.returncode}): {proc.stderr[:300]}")
+            last_out = proc.stdout
+            if not expects_json or extract_json(last_out):
+                return last_out
+        return last_out  # exhausted retries — let the aggregator flag it, as before
 
     if "/" in model:
         import litellm  # noqa: PLC0415
