@@ -23,7 +23,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
       - name: Install (with all extras)
-        run: pip install -e ".[dev,server,rag,langgraph]"
+        run: pip install -e ".[dev,server,rag,langgraph,docs]"
       - name: Run tests
         run: python -m pytest -q
 

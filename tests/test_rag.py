@@ -347,6 +347,7 @@ class TestDocumentExtractors(unittest.TestCase):
     """Pluggable per-suffix extractors, each guarded by its optional dependency."""
 
     def test_html_is_reduced_to_visible_text(self):
+        pytest.importorskip("bs4")
         from consilium import rag
         with tempfile.TemporaryDirectory() as tmp:
             p = Path(tmp) / "a.html"
@@ -424,6 +425,7 @@ class TestDocumentExtractors(unittest.TestCase):
 
     def test_ingest_routes_html_through_the_extractor(self):
         """The stored chunk must be extracted text, not raw markup."""
+        pytest.importorskip("bs4")
         from consilium import rag
         col = _mock_collection(count=0)
         with tempfile.TemporaryDirectory() as tmp:
