@@ -3,6 +3,7 @@
 # tested-by: CPYEXT-DOCRAG-001
 import io
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -229,6 +230,63 @@ class TestBuildRagContext(unittest.TestCase):
         with _patched(col):
             result = rag.build_rag_context("Add health endpoint")
         self.assertIn("SIMILAR PAST DECISIONS", result)
+
+
+class TestBuildRagBundle(unittest.TestCase):
+    """The retrieved doc identifiers must escape rag.py, not only reach the model."""
+
+    def test_returns_doc_source_ids_alongside_text(self):
+        from consilium import rag
+        col = _mock_collection(
+            count=1,
+            query_results={
+                "ids": [["doc:README.md:2"]],
+                "documents": [["Consilium is a deliberation engine."]],
+                "metadatas": [[{"kind": "doc", "source": "README.md", "chunk_index": 2}]],
+                "distances": [[0.1]],
+            },
+        )
+        with _patched(col), patch.object(rag, "retrieve", return_value=[]):
+            text, sources = rag.build_rag_bundle("What is consilium?")
+        self.assertIn("RELEVANT DOCS", text)
+        self.assertEqual(sources, ["README.md#2"])
+
+    def test_empty_index_returns_empty_text_and_no_sources(self):
+        from consilium import rag
+        col = _mock_collection(count=0)
+        with _patched(col), redirect_stderr(io.StringIO()):
+            text, sources = rag.build_rag_bundle("Add health check")
+        self.assertEqual(text, "")
+        self.assertEqual(sources, [])
+
+
+class TestStorageRootOverride(unittest.TestCase):
+    """A server process must not be pinned to the OS user's home directory."""
+
+    def test_consilium_home_redirects_runs_and_chroma(self):
+        from consilium import rag
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.dict(os.environ, {"CONSILIUM_HOME": tmp}):
+                self.assertEqual(rag.runs_dir(), Path(tmp) / "runs")
+                self.assertEqual(rag.chroma_dir(), Path(tmp) / "chroma")
+
+    def test_defaults_under_user_home_when_unset(self):
+        from consilium import rag
+        cleaned = {k: v for k, v in os.environ.items() if k != "CONSILIUM_HOME"}
+        with patch.dict(os.environ, cleaned, clear=True):
+            self.assertEqual(rag.runs_dir(), Path.home() / ".consilium" / "runs")
+            self.assertEqual(rag.chroma_dir(), Path.home() / ".consilium" / "chroma")
+
+    def test_save_run_writes_under_the_override(self):
+        """Senate anchor: redirect storage, confirm nothing lands in the real home."""
+        from consilium import rag
+        from consilium.models import DeliberationInput, Report
+        report = Report(verdict="GO", confidence=0.9, recommendation="ok", voices=[])
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.dict(os.environ, {"CONSILIUM_HOME": tmp}):
+                written = rag.save_run("run-1", DeliberationInput(proposal="x"), report)
+            self.assertEqual(written.parent, Path(tmp) / "runs")
+            self.assertTrue(written.exists())
 
 
 class TestChunkText(unittest.TestCase):

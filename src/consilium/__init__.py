@@ -23,10 +23,11 @@ def deliberate(
     rag: bool = False,
 ) -> Report:
     model = os.environ.get("CONSILIUM_MODEL", model)
+    sources: list[str] = []
     # RAG: prepend similar past decisions to context before voices run.
     if rag:
-        from consilium.rag import build_rag_context, index, new_run_id, save_run  # noqa: PLC0415
-        rag_block = build_rag_context(proposal)
+        from consilium.rag import build_rag_bundle, index, new_run_id, save_run  # noqa: PLC0415
+        rag_block, sources = build_rag_bundle(proposal)
         if rag_block:
             context = rag_block + ("\n\n" + context if context else "")
 
@@ -54,17 +55,22 @@ def deliberate(
         return Report(
             verdict="ANSWER",
             confidence=0.0,
-            recommendation=plain_answer(proposal, model),
+            recommendation=plain_answer(proposal, model, context=inp.context),
             voices=[],
             reason="not_a_proposal",
             mode=mode,
+            sources=sources,
         )
 
     # scale_down: the deliberation compressed to a short response. Generate the
     # actual 2-sentence reply rather than leak the "give a short response"
     # instruction (the recommendation) to the user.
     if report.reason == "scale_down":
-        report = report.model_copy(update={"recommendation": short_response(proposal, model)})
+        report = report.model_copy(
+            update={"recommendation": short_response(proposal, model, context=inp.context)}
+        )
+
+    report = report.model_copy(update={"sources": sources})
 
     # RAG: persist + index the run after deliberation.
     if rag:

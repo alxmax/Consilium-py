@@ -16,18 +16,83 @@ except ImportError:
         "Run: pip install 'consilium-py[server]'"
     )
 
+import hmac
 import logging
+import os
+import time
+from collections import defaultdict
 from contextlib import asynccontextmanager
 
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 from consilium import deliberate
+from consilium.chat import ask
 from consilium.errors import is_provider_error, provider_error_message
 from consilium.models import Report
 
 logger = logging.getLogger("consilium.server")
+
+# --- access control -------------------------------------------------------
+# implements: CPYSRV-AUTH-001
+# Both controls are opt-in via env var so `consilium serve` on localhost keeps
+# working unchanged; they exist so the same app is not defenceless the moment it
+# is bound to a non-loopback interface. A deliberation costs 3-10 provider calls,
+# so an uncapped public endpoint is an unbounded bill, not just an open door.
+
+_DEFAULT_RATE_LIMIT = 30  # requests per window, per client
+_RATE_WINDOW_SECONDS = 60.0
+
+# client key -> (window_start, count). In-process only: a single-worker cap, not
+# a distributed quota. Multiple uvicorn workers each get their own bucket.
+_rate_state: dict[str, tuple[float, int]] = defaultdict(lambda: (0.0, 0))
+
+
+def reset_rate_limit() -> None:
+    """Drop all rate-limit buckets (used by tests and after a config change)."""
+    _rate_state.clear()
+
+
+def _require_api_key(request: Request) -> None:
+    """401 unless the caller presents `CONSILIUM_API_KEY` in `X-API-Key`.
+
+    No key configured means no authentication — the localhost default.
+    """
+    expected = os.environ.get("CONSILIUM_API_KEY")
+    if not expected:
+        return
+    presented = request.headers.get("X-API-Key", "")
+    # compare_digest: constant-time, so a wrong key leaks no prefix information.
+    if not hmac.compare_digest(presented, expected):
+        raise HTTPException(status_code=401, detail="Invalid or missing X-API-Key.")
+
+
+def _enforce_rate_limit(request: Request) -> None:
+    """429 past `CONSILIUM_RATE_LIMIT` requests per 60 s from one client."""
+    raw = os.environ.get("CONSILIUM_RATE_LIMIT", str(_DEFAULT_RATE_LIMIT))
+    try:
+        limit = int(raw)
+    except ValueError:
+        limit = _DEFAULT_RATE_LIMIT
+    if limit <= 0:  # explicit opt-out
+        return
+
+    # Prefer the API key over the IP: behind a proxy every caller shares an IP.
+    client_key = request.headers.get("X-API-Key") or (
+        request.client.host if request.client else "unknown"
+    )
+    now = time.monotonic()
+    window_start, count = _rate_state[client_key]
+    if now - window_start >= _RATE_WINDOW_SECONDS:
+        _rate_state[client_key] = (now, 1)
+        return
+    if count >= limit:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Rate limit exceeded ({limit} requests per {int(_RATE_WINDOW_SECONDS)}s).",
+        )
+    _rate_state[client_key] = (window_start, count + 1)
 
 
 @asynccontextmanager
@@ -50,6 +115,15 @@ class DeliberateRequest(BaseModel):
     model: str = ""
     rag: bool = False
     skeptic_can_override: bool = False
+
+
+class AskRequest(BaseModel):
+    question: str
+    model: str = ""
+    rag: bool = True
+    # None = retrieve-then-answer (one model call). A mode opts into the full
+    # deliberation, which is the expensive path and rarely what a question wants.
+    mode: str | None = None
 
 
 _UI = """<!DOCTYPE html>
@@ -224,7 +298,9 @@ def ui() -> str:
 
 
 @app.post("/deliberate", response_model=Report)
-def run_deliberate(req: DeliberateRequest) -> Report:
+def run_deliberate(req: DeliberateRequest, request: Request) -> Report:
+    _require_api_key(request)
+    _enforce_rate_limit(request)
     kwargs: dict = dict(
         proposal=req.proposal, context=req.context, mode=req.mode,
         rag=req.rag, skeptic_can_override=req.skeptic_can_override,
@@ -240,6 +316,31 @@ def run_deliberate(req: DeliberateRequest) -> Report:
         # upstream provider is consilium-py's credential/config problem, not
         # the HTTP caller's — echoing it back would wrongly imply the caller's
         # request to *this* API was invalid.
+        raise HTTPException(
+            status_code=502, detail=provider_error_message(e, req.model or None)
+        ) from None
+
+
+@app.post("/ask", response_model=Report)
+def run_ask(req: AskRequest, request: Request) -> Report:
+    """Chat Q&A: retrieve, then answer. `mode` opts into a full deliberation.
+
+    Logic lives in `consilium.chat` so this route stays a transport shim and the
+    chat surface is usable without the [server] extra.
+    """
+    # implements: CPYBUS-CHAT-001
+    _require_api_key(request)
+    _enforce_rate_limit(request)
+    kwargs: dict = dict(question=req.question, rag=req.rag, mode=req.mode)
+    if req.model:
+        kwargs["model"] = req.model
+    try:
+        return ask(**kwargs)
+    except ValueError as e:  # unknown mode — the caller's mistake, not a 500
+        raise HTTPException(status_code=400, detail=str(e)) from None
+    except Exception as e:  # noqa: BLE001
+        if not is_provider_error(e):
+            raise
         raise HTTPException(
             status_code=502, detail=provider_error_message(e, req.model or None)
         ) from None

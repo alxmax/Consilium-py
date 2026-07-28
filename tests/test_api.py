@@ -168,5 +168,81 @@ class TestNonDeliberationAnswer(unittest.TestCase):
         sr.assert_called_once()
 
 
+class TestBypassAnswersAreGrounded(unittest.TestCase):
+    """The ANSWER / scale_down routes bypass the pipeline; they must still see
+    the retrieved RAG block, or a 'grounded' chat answer is silently ungrounded."""
+
+    _RAG_BLOCK = "RELEVANT DOCS:\n  - [spec.md#0] 'the retry budget is 3'"
+
+    def test_not_a_proposal_answer_receives_rag_context(self):
+        from consilium import deliberate
+        block = Report(
+            verdict="BLOCK", confidence=0.1, recommendation="blocked",
+            voices=[], reason="not_a_proposal", mode="sequential",
+        )
+        with patch("consilium.run_sequential", return_value=block), \
+                patch("consilium.rag.build_rag_bundle",
+                      return_value=(self._RAG_BLOCK, ["spec.md#0"])), \
+                patch("consilium.plain_answer", return_value="3") as pa:
+            deliberate("what is the retry budget?", mode="sequential", rag=True)
+        self.assertIn("retry budget is 3", pa.call_args.kwargs["context"])
+
+    def test_scale_down_response_receives_rag_context(self):
+        from consilium import deliberate
+        rep = Report(
+            verdict="GO", confidence=0.5, recommendation="leaked instruction",
+            voices=[], reason="scale_down", mode="sequential",
+        )
+        with patch("consilium.run_sequential", return_value=rep), \
+                patch("consilium.rag.build_rag_bundle",
+                      return_value=(self._RAG_BLOCK, ["spec.md#0"])), \
+                patch("consilium.rag.save_run"), patch("consilium.rag.index"), \
+                patch("consilium.short_response", return_value="It is 3.") as sr:
+            deliberate("raise the retry budget", mode="sequential", rag=True)
+        self.assertIn("retry budget is 3", sr.call_args.kwargs["context"])
+
+    def test_answer_reports_the_sources_it_was_grounded_in(self):
+        """The caller must be able to verify grounding, not just trust it."""
+        from consilium import deliberate
+        block = Report(
+            verdict="BLOCK", confidence=0.1, recommendation="blocked",
+            voices=[], reason="not_a_proposal", mode="sequential",
+        )
+        with patch("consilium.run_sequential", return_value=block), \
+                patch("consilium.rag.build_rag_bundle",
+                      return_value=(self._RAG_BLOCK, ["spec.md#0"])), \
+                patch("consilium.plain_answer", return_value="3"):
+            report = deliberate("what is the retry budget?", mode="sequential", rag=True)
+        self.assertEqual(report.sources, ["spec.md#0"])
+
+    def test_deliberated_verdict_reports_sources_too(self):
+        """Not just the bypass route — a real deliberation cites its docs as well."""
+        from consilium import deliberate
+        with patch("consilium.run_sequential", return_value=_go_report("sequential")), \
+                patch("consilium.rag.build_rag_bundle",
+                      return_value=(self._RAG_BLOCK, ["spec.md#0"])), \
+                patch("consilium.rag.save_run"), patch("consilium.rag.index"):
+            report = deliberate("Add health check", mode="sequential", rag=True)
+        self.assertEqual(report.sources, ["spec.md#0"])
+
+    def test_sources_empty_when_rag_disabled(self):
+        from consilium import deliberate
+        with patch("consilium.run_sequential", return_value=_go_report("sequential")):
+            report = deliberate("Add health check", mode="sequential")
+        self.assertEqual(report.sources, [])
+
+    def test_answer_without_rag_passes_empty_context(self):
+        """rag=False must not fabricate a context block."""
+        from consilium import deliberate
+        block = Report(
+            verdict="BLOCK", confidence=0.1, recommendation="blocked",
+            voices=[], reason="not_a_proposal", mode="sequential",
+        )
+        with patch("consilium.run_sequential", return_value=block), \
+                patch("consilium.plain_answer", return_value="hi") as pa:
+            deliberate("hello", mode="sequential")
+        self.assertEqual(pa.call_args.kwargs["context"], "")
+
+
 if __name__ == "__main__":
     unittest.main()
