@@ -218,3 +218,63 @@ class TestAskRoute(unittest.TestCase):
             resp = self.client.post("/ask", json={"question": "x"})
         self.assertEqual(resp.status_code, 401)
         a.assert_not_called()
+
+
+@unittest.skipUnless(_SERVER_AVAILABLE, "consilium-py[server] not installed")
+class TestTenantResolution(unittest.TestCase):
+    """Tenant comes from the authenticated key, never from the request body."""
+
+    def setUp(self) -> None:
+        from consilium import server
+        server.reset_rate_limit()
+        self.client = TestClient(app)
+
+    @staticmethod
+    def _answer():
+        from consilium.models import Report
+        return Report(verdict="ANSWER", confidence=0.0, recommendation="a", voices=[], mode="chat")
+
+    def test_no_keys_configured_means_shared_corpus(self) -> None:
+        cleaned = {k: v for k, v in os.environ.items()
+                   if k not in ("CONSILIUM_API_KEY", "CONSILIUM_API_KEYS")}
+        with patch.dict(os.environ, cleaned, clear=True), \
+                patch("consilium.server.ask", return_value=self._answer()) as a:
+            self.client.post("/ask", json={"question": "q"})
+        self.assertIsNone(a.call_args.kwargs["tenant"])
+
+    def test_multi_key_map_resolves_the_tenant(self) -> None:
+        with patch.dict(os.environ, {"CONSILIUM_API_KEYS": "alice:k1,bob:k2"}), \
+                patch("consilium.server.ask", return_value=self._answer()) as a:
+            resp = self.client.post("/ask", json={"question": "q"},
+                                    headers={"X-API-Key": "k2"})
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(a.call_args.kwargs["tenant"], "bob")
+
+    def test_unknown_key_is_rejected(self) -> None:
+        with patch.dict(os.environ, {"CONSILIUM_API_KEYS": "alice:k1"}), \
+                patch("consilium.server.ask", return_value=self._answer()) as a:
+            resp = self.client.post("/ask", json={"question": "q"},
+                                    headers={"X-API-Key": "nope"})
+        self.assertEqual(resp.status_code, 401)
+        a.assert_not_called()
+
+    def test_body_cannot_spoof_the_tenant(self) -> None:
+        """A caller-supplied tenant field must be ignored, not honoured."""
+        with patch.dict(os.environ, {"CONSILIUM_API_KEYS": "alice:k1"}), \
+                patch("consilium.server.ask", return_value=self._answer()) as a:
+            self.client.post("/ask", json={"question": "q", "tenant": "bob"},
+                             headers={"X-API-Key": "k1"})
+        self.assertEqual(a.call_args.kwargs["tenant"], "alice")
+
+    def test_single_key_stays_single_tenant(self) -> None:
+        """Backwards compat: the original singular env var authenticates only."""
+        with patch.dict(os.environ, {"CONSILIUM_API_KEY": "secret"}), \
+                patch("consilium.server.ask", return_value=self._answer()) as a:
+            self.client.post("/ask", json={"question": "q"}, headers={"X-API-Key": "secret"})
+        self.assertIsNone(a.call_args.kwargs["tenant"])
+
+    def test_deliberate_route_is_scoped_too(self) -> None:
+        with patch.dict(os.environ, {"CONSILIUM_API_KEYS": "alice:k1"}), \
+                patch("consilium.server.deliberate", return_value=_stub_report()) as d:
+            self.client.post("/deliberate", json={"proposal": "p"}, headers={"X-API-Key": "k1"})
+        self.assertEqual(d.call_args.kwargs["tenant"], "alice")

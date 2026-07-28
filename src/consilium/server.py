@@ -54,18 +54,50 @@ def reset_rate_limit() -> None:
     _rate_state.clear()
 
 
-def _require_api_key(request: Request) -> None:
-    """401 unless the caller presents `CONSILIUM_API_KEY` in `X-API-Key`.
+def _key_map() -> dict[str, str]:
+    """Parse `CONSILIUM_API_KEYS` — `tenant:key,tenant:key` → `{key: tenant}`.
 
-    No key configured means no authentication — the localhost default.
+    Setting it turns on multi-tenant mode: each key identifies its own corpus.
+    Malformed entries are dropped rather than raised — a typo must not open the
+    endpoint up, and a dropped entry simply fails to authenticate.
     """
+    raw = os.environ.get("CONSILIUM_API_KEYS", "")
+    out: dict[str, str] = {}
+    for entry in raw.split(","):
+        tenant, sep, key = entry.partition(":")
+        if sep and tenant.strip() and key.strip():
+            out[key.strip()] = tenant.strip()
+    return out
+
+
+def _require_api_key(request: Request) -> None:
+    """401 unless the caller presents a configured key in `X-API-Key`.
+
+    No key configured at all means no authentication — the localhost default.
+    """
+    presented = request.headers.get("X-API-Key", "")
+    keys = _key_map()
+    if keys:
+        # compare_digest against every candidate: constant-time per comparison,
+        # and we must not short-circuit on the first mismatch.
+        if not any(hmac.compare_digest(presented, k) for k in keys):
+            raise HTTPException(status_code=401, detail="Invalid or missing X-API-Key.")
+        return
     expected = os.environ.get("CONSILIUM_API_KEY")
     if not expected:
         return
-    presented = request.headers.get("X-API-Key", "")
-    # compare_digest: constant-time, so a wrong key leaks no prefix information.
     if not hmac.compare_digest(presented, expected):
         raise HTTPException(status_code=401, detail="Invalid or missing X-API-Key.")
+
+
+def _tenant_for(request: Request) -> str | None:
+    """Resolve the caller's RAG scope from their authenticated key.
+
+    Server-side only and deliberately not a request field: if the body could
+    name the tenant, a caller would pick their own scope. `None` (no key map
+    configured) means the shared single-corpus mode.
+    """
+    return _key_map().get(request.headers.get("X-API-Key", ""))
 
 
 def _enforce_rate_limit(request: Request) -> None:
@@ -304,6 +336,7 @@ def run_deliberate(req: DeliberateRequest, request: Request) -> Report:
     kwargs: dict = dict(
         proposal=req.proposal, context=req.context, mode=req.mode,
         rag=req.rag, skeptic_can_override=req.skeptic_can_override,
+        tenant=_tenant_for(request),
     )
     if req.model:
         kwargs["model"] = req.model
@@ -331,7 +364,8 @@ def run_ask(req: AskRequest, request: Request) -> Report:
     # implements: CPYBUS-CHAT-001
     _require_api_key(request)
     _enforce_rate_limit(request)
-    kwargs: dict = dict(question=req.question, rag=req.rag, mode=req.mode)
+    kwargs: dict = dict(question=req.question, rag=req.rag, mode=req.mode,
+                        tenant=_tenant_for(request))
     if req.model:
         kwargs["model"] = req.model
     try:

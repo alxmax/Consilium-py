@@ -68,3 +68,25 @@ class TestAskDeliberateOptIn(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestAskTenantScoping(unittest.TestCase):
+    def test_tenant_reaches_retrieval(self):
+        from consilium import chat
+        with patch("consilium.rag.build_rag_bundle", return_value=_BUNDLE) as bundle, \
+                patch("consilium.chat.plain_answer", return_value="ok"):
+            chat.ask("q", tenant="acme")
+        self.assertEqual(bundle.call_args.kwargs["tenant"], "acme")
+
+    def test_default_is_shared_corpus(self):
+        from consilium import chat
+        with patch("consilium.rag.build_rag_bundle", return_value=_BUNDLE) as bundle, \
+                patch("consilium.chat.plain_answer", return_value="ok"):
+            chat.ask("q")
+        self.assertIsNone(bundle.call_args.kwargs["tenant"])
+
+    def test_tenant_forwarded_to_deliberation_mode(self):
+        from consilium import chat
+        with patch("consilium.chat.deliberate", return_value=_go_report()) as d:
+            chat.ask("q", mode="sequential", tenant="acme")
+        self.assertEqual(d.call_args.kwargs["tenant"], "acme")

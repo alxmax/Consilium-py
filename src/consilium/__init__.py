@@ -21,13 +21,14 @@ def deliberate(
     model: str = _DEFAULT_MODEL,
     skeptic_can_override: bool = False,
     rag: bool = False,
+    tenant: str | None = None,
 ) -> Report:
     model = os.environ.get("CONSILIUM_MODEL", model)
     sources: list[str] = []
     # RAG: prepend similar past decisions to context before voices run.
     if rag:
         from consilium.rag import build_rag_bundle, index, new_run_id, save_run  # noqa: PLC0415
-        rag_block, sources = build_rag_bundle(proposal)
+        rag_block, sources = build_rag_bundle(proposal, tenant=tenant)
         if rag_block:
             context = rag_block + ("\n\n" + context if context else "")
 
@@ -76,6 +77,6 @@ def deliberate(
     if rag:
         run_id = new_run_id()
         save_run(run_id, inp, report)
-        index(run_id, inp, report)
+        index(run_id, inp, report, tenant=tenant)
 
     return report

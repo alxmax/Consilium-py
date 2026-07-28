@@ -246,3 +246,22 @@ class TestBypassAnswersAreGrounded(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestDeliberateTenantScoping(unittest.TestCase):
+    def test_tenant_scopes_retrieval_and_indexing(self):
+        from consilium import deliberate
+        with patch("consilium.run_sequential", return_value=_go_report("sequential")), \
+                patch("consilium.rag.build_rag_bundle", return_value=("blk", ["s#0"])) as bundle, \
+                patch("consilium.rag.save_run"), patch("consilium.rag.index") as idx:
+            deliberate("p", mode="sequential", rag=True, tenant="acme")
+        self.assertEqual(bundle.call_args.kwargs["tenant"], "acme")
+        self.assertEqual(idx.call_args.kwargs["tenant"], "acme")
+
+    def test_default_tenant_is_none(self):
+        from consilium import deliberate
+        with patch("consilium.run_sequential", return_value=_go_report("sequential")), \
+                patch("consilium.rag.build_rag_bundle", return_value=("blk", [])) as bundle, \
+                patch("consilium.rag.save_run"), patch("consilium.rag.index"):
+            deliberate("p", mode="sequential", rag=True)
+        self.assertIsNone(bundle.call_args.kwargs["tenant"])

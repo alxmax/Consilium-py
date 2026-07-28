@@ -425,23 +425,27 @@ def index_cmd() -> None:
 # implements: CPYEXT-DOCRAG-001
 @main.command("ingest")
 @click.argument("path")
-def ingest_cmd(path: str) -> None:
+@click.option("--tenant", default=None,
+              help="Scope these documents to one tenant. Omit for the shared corpus.")
+def ingest_cmd(path: str, tenant: str | None) -> None:
     """Chunk and index a document or directory for RAG retrieval (requires consilium-py[rag]).
 
     \b
     Examples:
       consilium ingest README.md
       consilium ingest docs/
+      consilium ingest docs/ --tenant acme
     """
     try:
-        from consilium.rag import ingest_path  # noqa: PLC0415
+        from consilium.rag import chroma_dir, ingest_path  # noqa: PLC0415
     except ImportError as e:
         raise click.ClickException(str(e))
     try:
-        count = ingest_path(path)
+        count = ingest_path(path, tenant=tenant)
     except FileNotFoundError as e:
         raise click.ClickException(str(e))
-    click.echo(f"Indexed {count} chunk(s) from {path} into ~/.consilium/chroma/")
+    scope = f" for tenant {tenant!r}" if tenant else ""
+    click.echo(f"Indexed {count} chunk(s) from {path}{scope} into {chroma_dir()}")
 
 
 def _print_report(report: Report, output: str) -> None:

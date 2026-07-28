@@ -1,15 +1,20 @@
 """RAG context injection from past deliberation runs and ingested reference documents.
 
-SINGLE-TENANT ONLY. There is one collection and no per-caller scope key: no
-record written by `index()` or `ingest_path()` carries a user/tenant field, and
-the `where` filters in `retrieve()` / `_doc_hits()` cannot filter by one. With
-`rag=True` every submitted question is also indexed, so on a shared deployment
-one caller's questions and documents are retrievable by the next.
+TENANCY — two modes, chosen per call via the `tenant` argument:
 
-Do not enable `rag=True` on a multi-tenant endpoint until a scope key exists.
-Retrofitting it is not fully reversible: the corpus can be rebuilt from
-`runs_dir()` and the original source files, but records already written carry no
-tenant attribution to sort by, and anything already disclosed stays disclosed.
+- `tenant=None` (default): one shared corpus, no scope key written or filtered.
+  This is the single-operator mode and the original behaviour.
+- `tenant="<id>"`: reads AND writes are scoped to that id. A scoped query cannot
+  see another tenant's records, and — deliberately — cannot see *untagged* ones
+  either. That fail-closed choice means records written before tenancy existed
+  are invisible in scoped mode rather than leaking to the first tenant who asks.
+
+The tenant id must be resolved server-side from the authenticated caller, never
+read from a request body — otherwise the caller picks their own scope.
+
+Switching an existing shared corpus to scoped mode is not retroactive: already
+written records carry no tenant key, so they need re-ingesting under a tenant
+(`consilium ingest <path> --tenant <id>`) to become visible again.
 """
 # implements: CPYEXT-RAG-001
 # implements: CPYEXT-DOCRAG-001
@@ -21,7 +26,7 @@ import sys
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 if TYPE_CHECKING:
     from consilium.models import DeliberationInput, Report
@@ -59,10 +64,119 @@ _EXCLUDED_VERDICTS = ("STOP", "BLOCK")
 _TOP_K = 3
 
 # consilium ingest: guards against embedding huge/binary/out-of-scope files.
-_MAX_INGEST_FILE_BYTES = 1_000_000  # 1 MB
+# 10 MB, not 1 MB: a single PDF routinely exceeds the old cap, and the real
+# blast-radius guard is the extracted-text length, not the container size.
+_MAX_INGEST_FILE_BYTES = 10_000_000  # 10 MB
 _CHUNK_SIZE = 1200  # characters
 _CHUNK_OVERLAP = 200  # characters
-_INGESTABLE_SUFFIXES = {".md", ".txt", ".py", ".rst"}
+_PLAIN_TEXT_SUFFIXES = {".md", ".txt", ".py", ".rst"}
+
+# CSV preview: enough rows to show the shape, few enough that no aggregate can
+# be read off them. See _extract_csv for why rows are deliberately not embedded.
+_CSV_PREVIEW_ROWS = 5
+
+
+def _extract_html(path: Path) -> str:
+    try:
+        from bs4 import BeautifulSoup  # noqa: PLC0415
+    except ImportError:
+        raise ImportError(
+            "Ingesting HTML requires beautifulsoup4. "
+            "Install with: pip install 'consilium-py[docs]'"
+        )
+    soup = BeautifulSoup(path.read_text(encoding="utf-8", errors="replace"), "html.parser")
+    for tag in soup(["script", "style"]):
+        tag.decompose()
+    return soup.get_text(separator="\n")
+
+
+def _extract_docx(path: Path) -> str:
+    try:
+        import docx  # noqa: PLC0415
+    except ImportError:
+        raise ImportError(
+            "Ingesting .docx requires python-docx. "
+            "Install with: pip install 'consilium-py[docs]'"
+        )
+    return "\n".join(p.text for p in docx.Document(str(path)).paragraphs)
+
+
+def _extract_pdf(path: Path) -> str:
+    try:
+        import fitz  # noqa: PLC0415  (PyMuPDF)
+    except ImportError:
+        raise ImportError(
+            "Ingesting PDF requires PyMuPDF. "
+            "Install with: pip install 'consilium-py[docs]'"
+        )
+    with fitz.open(str(path)) as doc:
+        # get_text() is overloaded on its `option` arg; the default returns str.
+        return "\n".join(str(page.get_text()) for page in doc)
+
+
+def _extract_csv(path: Path) -> str:
+    """Describe a CSV's *structure*; deliberately do not embed its rows.
+
+    Semantic retrieval over table rows is the wrong tool for tabular data: a
+    top-k cosine match returns a handful of arbitrary rows, from which a model
+    will happily compute a confident and wrong aggregate. Embedding the schema
+    instead lets retrieval answer "which dataset holds this?" while forcing any
+    actual figure to come from a deterministic query over the real file.
+    """
+    import csv  # noqa: PLC0415
+
+    with path.open(encoding="utf-8", errors="replace", newline="") as fh:
+        reader = csv.reader(fh)
+        try:
+            header = next(reader)
+        except StopIteration:
+            return ""
+        preview: list[str] = []
+        total = 0
+        for row in reader:
+            total += 1
+            if len(preview) < _CSV_PREVIEW_ROWS:
+                preview.append(", ".join(row))
+
+    lines = [
+        f"DATASET: {path.name}",
+        f"COLUMNS ({len(header)}): {', '.join(header)}",
+        f"ROWS: {total}",
+        "",
+        f"First {len(preview)} row(s), for shape only — this summary is "
+        "not a source for numeric answers; query the file directly for figures:",
+        *preview,
+    ]
+    return "\n".join(lines)
+
+
+# suffix -> extractor. Add an entry to support a new format; nothing else in the
+# ingest path needs to change. Screenshots (.png/.jpg) are deliberately absent:
+# OCR needs an external tesseract binary, and a silent empty extraction is worse
+# than an explicit skip.
+_EXTRACTORS: dict[str, "Callable[[Path], str]"] = {
+    ".html": _extract_html,
+    ".htm": _extract_html,
+    ".docx": _extract_docx,
+    ".pdf": _extract_pdf,
+    ".csv": _extract_csv,
+}
+
+_INGESTABLE_SUFFIXES = _PLAIN_TEXT_SUFFIXES | set(_EXTRACTORS)
+
+
+def extract_text(path: Path) -> str | None:
+    """Return the ingestable text of `path`, or None if the format is unsupported.
+
+    Raises ImportError (with a `pip install` hint) when the format is supported
+    but its optional dependency is missing — a missing extractor must be loud,
+    never a silently empty document.
+    """
+    suffix = path.suffix.lower()
+    if suffix in _PLAIN_TEXT_SUFFIXES:
+        return path.read_text(encoding="utf-8")
+    extractor = _EXTRACTORS.get(suffix)
+    return extractor(path) if extractor else None
 
 
 def _get_collection():
@@ -128,21 +242,35 @@ def save_run(run_id: str, inp: "DeliberationInput", report: "Report") -> Path:
     return path
 
 
-def index(run_id: str, inp: "DeliberationInput", report: "Report") -> None:
-    """Add a run to the ChromaDB vector index, keyed by run_id."""
+def index(
+    run_id: str, inp: "DeliberationInput", report: "Report", tenant: str | None = None
+) -> None:
+    """Add a run to the ChromaDB vector index, keyed by run_id.
+
+    `tenant=None` writes no tenant key at all (shared single-user corpus);
+    a tenant string scopes the record so only that tenant can retrieve it.
+    """
     col = _get_collection()
     document = inp.proposal + (f"\n\n{inp.context}" if inp.context else "")
-    col.upsert(
-        ids=[run_id],
-        documents=[document],
-        metadatas=[{
-            "kind": "run",
-            "verdict": report.verdict,
-            "confidence": report.confidence,
-            "recommendation": report.recommendation[:500],
-            "mode": report.mode,
-        }],
-    )
+    metadata: dict = {
+        "kind": "run",
+        "verdict": report.verdict,
+        "confidence": report.confidence,
+        "recommendation": report.recommendation[:500],
+        "mode": report.mode,
+    }
+    if tenant is not None:
+        metadata["tenant"] = tenant
+    col.upsert(ids=[run_id], documents=[document], metadatas=[metadata])
+
+
+def _tenant_clause(tenant: str | None) -> list[dict]:
+    """`where` clauses scoping a query to one tenant, or none in shared mode.
+
+    Fail closed: in scoped mode the clause also excludes records that carry no
+    `tenant` key at all, so pre-tenancy data is never served to a tenant.
+    """
+    return [] if tenant is None else [{"tenant": tenant}]
 
 
 def _query(text: str, *, kind: str, extra_where: list[dict] | None, k: int, max_distance: float):
@@ -185,7 +313,10 @@ def _query(text: str, *, kind: str, extra_where: list[dict] | None, k: int, max_
     ]
 
 
-def retrieve(proposal: str, k: int = _TOP_K, max_distance: float = _MAX_DISTANCE) -> list[str]:
+def retrieve(
+    proposal: str, k: int = _TOP_K, max_distance: float = _MAX_DISTANCE,
+    tenant: str | None = None,
+) -> list[str]:
     """Return formatted snippets of past runs similar to proposal.
 
     Excludes STOP/BLOCK-verdict and low-confidence (<_MIN_CONFIDENCE) runs by
@@ -201,6 +332,7 @@ def retrieve(proposal: str, k: int = _TOP_K, max_distance: float = _MAX_DISTANCE
         extra_where=[
             {"confidence": {"$gte": _MIN_CONFIDENCE}},
             {"verdict": {"$nin": list(_EXCLUDED_VERDICTS)}},
+            *_tenant_clause(tenant),
         ],
     )
     snippets = []
@@ -211,7 +343,8 @@ def retrieve(proposal: str, k: int = _TOP_K, max_distance: float = _MAX_DISTANCE
 
 
 def _doc_hits(
-    proposal: str, k: int = _TOP_K, max_distance: float = _MAX_DISTANCE
+    proposal: str, k: int = _TOP_K, max_distance: float = _MAX_DISTANCE,
+    tenant: str | None = None,
 ) -> list[tuple[str, str]]:
     """Return `(source_id, cited_snippet)` for the nearest chunk per source file.
 
@@ -222,7 +355,8 @@ def _doc_hits(
     The `source_id` half is what lets a caller verify grounding; the snippet half
     is what the voices read. Both are derived from the same single query.
     """
-    hits = _query(proposal, kind="doc", k=k * 4, max_distance=max_distance, extra_where=None)
+    hits = _query(proposal, kind="doc", k=k * 4, max_distance=max_distance,
+                  extra_where=_tenant_clause(tenant))
     out: list[tuple[str, str]] = []
     seen: set[str] = set()
     for doc, meta, _dist in hits:  # hits are ordered nearest-first
@@ -237,12 +371,15 @@ def _doc_hits(
     return out
 
 
-def retrieve_docs(proposal: str, k: int = _TOP_K, max_distance: float = _MAX_DISTANCE) -> list[str]:
+def retrieve_docs(
+    proposal: str, k: int = _TOP_K, max_distance: float = _MAX_DISTANCE,
+    tenant: str | None = None,
+) -> list[str]:
     """Return up to `k` source-cited snippets of ingested doc chunks similar to proposal."""
-    return [snippet for _source_id, snippet in _doc_hits(proposal, k, max_distance)]
+    return [snippet for _source_id, snippet in _doc_hits(proposal, k, max_distance, tenant)]
 
 
-def build_rag_bundle(proposal: str) -> tuple[str, list[str]]:
+def build_rag_bundle(proposal: str, tenant: str | None = None) -> tuple[str, list[str]]:
     """Return `(context_block, doc_source_ids)` for a proposal.
 
     The block is prepended to the voices' context; the ids travel back to the
@@ -252,12 +389,12 @@ def build_rag_bundle(proposal: str) -> tuple[str, list[str]]:
     """
     blocks = []
 
-    run_snippets = retrieve(proposal)
+    run_snippets = retrieve(proposal, tenant=tenant)
     if run_snippets:
         lines = "\n".join(f"  - {s}" for s in run_snippets)
         blocks.append(f"SIMILAR PAST DECISIONS:\n{lines}")
 
-    doc_hits = _doc_hits(proposal)
+    doc_hits = _doc_hits(proposal, tenant=tenant)
     if doc_hits:
         lines = "\n".join(f"  - {snippet}" for _source_id, snippet in doc_hits)
         blocks.append(f"RELEVANT DOCS:\n{lines}")
@@ -265,12 +402,12 @@ def build_rag_bundle(proposal: str) -> tuple[str, list[str]]:
     return "\n\n".join(blocks), [source_id for source_id, _snippet in doc_hits]
 
 
-def build_rag_context(proposal: str) -> str:
+def build_rag_context(proposal: str, tenant: str | None = None) -> str:
     """Return SIMILAR PAST DECISIONS / RELEVANT DOCS blocks to prepend to context.
 
     Empty string if neither has anything to say.
     """
-    return build_rag_bundle(proposal)[0]
+    return build_rag_bundle(proposal, tenant)[0]
 
 
 def index_all_runs() -> int:
@@ -321,7 +458,7 @@ def _iter_ingestable_files(path: Path):
             yield p
 
 
-def ingest_path(path: str) -> int:
+def ingest_path(path: str, tenant: str | None = None) -> int:
     """Chunk and index every ingestable file under `path` (file or directory).
 
     Returns the number of chunks indexed. Guards: skips files above
@@ -352,9 +489,16 @@ def ingest_path(path: str) -> int:
             continue
 
         try:
-            text = resolved.read_text(encoding="utf-8")
-        except (UnicodeDecodeError, OSError):
-            print(f"[ingest] Skipping {file_path} — not valid UTF-8 text", file=sys.stderr)
+            text = extract_text(resolved)
+        except ImportError:
+            raise  # a missing extractor dependency is loud, never a silent skip
+        except (UnicodeDecodeError, OSError, ValueError) as e:
+            print(f"[ingest] Skipping {file_path} — unreadable ({type(e).__name__})",
+                  file=sys.stderr)
+            continue
+        if text is None:
+            print(f"[ingest] Skipping {file_path} — no extractor for {resolved.suffix!r}",
+                  file=sys.stderr)
             continue
 
         source = str(file_path.relative_to(root) if root.is_dir() else file_path.name)
@@ -365,10 +509,19 @@ def ingest_path(path: str) -> int:
         # Drop any previous chunks for this source before re-indexing, so a file
         # that now has fewer chunks doesn't leave stale orphans behind (upsert
         # alone only overwrites matching ids, never removes surplus ones).
-        col.delete(where={"source": source})
+        delete_where: dict = {"source": source}
+        if tenant is not None:
+            # scope the purge: an unscoped delete would wipe another tenant's
+            # chunks for a same-named file.
+            delete_where = {"$and": [{"source": source}, {"tenant": tenant}]}
+        col.delete(where=delete_where)
 
         ids = [f"doc:{source}:{i}" for i in range(len(chunks))]
-        metadatas = [{"kind": "doc", "source": source, "chunk_index": i} for i in range(len(chunks))]
+        scope = {} if tenant is None else {"tenant": tenant}
+        metadatas = [
+            {"kind": "doc", "source": source, "chunk_index": i, **scope}
+            for i in range(len(chunks))
+        ]
         col.upsert(ids=ids, documents=chunks, metadatas=metadatas)  # type: ignore[arg-type]
         total_chunks += len(chunks)
 
