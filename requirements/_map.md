@@ -1,7 +1,7 @@
 ---
-generated: 2026-07-04 18:03
-nodes: 15
-edges: 26
+generated: 2026-07-28 22:08
+nodes: 17
+edges: 29
 ---
 
 # Requirement Map
@@ -15,6 +15,7 @@ graph LR
   subgraph sg_CPYBUS["CPYBUS"]
     CPYBUS_AGG_001["Sequential aggregation — veto cascade, voice extraction, Report assembly<br><small>CPYBUS-AGG-001</small>"]
     CPYBUS_API_001["Public Python API — deliberate()<br><small>CPYBUS-API-001</small>"]
+    CPYBUS_CHAT_001["Chat Q&A surface — retrieve-then-answer, deliberation opt-in<br><small>CPYBUS-CHAT-001</small>"]
     CPYBUS_CLI_001["CLI interface — deliberate and check commands<br><small>CPYBUS-CLI-001</small>"]
     CPYBUS_EXPLAIN_001["Codebase explanation — explain_module and the explain CLI command<br><small>CPYBUS-EXPLAIN-001</small>"]
     CPYBUS_SKEPTIC_001["Shared Skeptic challenge<br><small>CPYBUS-SKEPTIC-001</small>"]
@@ -32,20 +33,24 @@ graph LR
     CPYMOD_TRI_001["Trias deliberation mode — 3 parallel personalities + post-vote Skeptic<br><small>CPYMOD-TRI-001</small>"]
   end
   subgraph sg_CPYSRV["CPYSRV"]
+    CPYSRV_AUTH_001["HTTP access control — optional API key and per-caller rate limit<br><small>CPYSRV-AUTH-001</small>"]
     CPYSRV_HTTP_001["HTTP server — POST /deliberate and the / web UI<br><small>CPYSRV-HTTP-001</small>"]
     CPYSRV_SERVE_001["serve CLI command — local web UI launcher<br><small>CPYSRV-SERVE-001</small>"]
   end
   CPYBUS_API_001 --> CPYMOD_SEQ_001
   CPYBUS_API_001 --> CPYMOD_DIA_001
   CPYBUS_API_001 --> CPYMOD_TRI_001
+  CPYBUS_CHAT_001 --> CPYEXT_DOCRAG_001
   CPYEXT_DOCRAG_001 --> CPYEXT_RAG_001
   CPYMOD_DIA_001 --> CPYMOD_SEQ_001
   style CPYBUS_AGG_001 stroke-width:3px
   style CPYBUS_API_001 stroke-width:3px
+  style CPYBUS_CHAT_001 stroke-width:3px
   style CPYBUS_CLI_001 stroke-width:3px
   style CPYBUS_EXPLAIN_001 stroke-width:3px
   style CPYBUS_SKEPTIC_001 stroke-width:3px
   style CPYBUS_VOI_001 stroke-width:3px
+  style CPYSRV_AUTH_001 stroke-width:3px
   style CPYSRV_HTTP_001 stroke-width:3px
   style CPYSRV_SERVE_001 stroke-width:3px
 ```
@@ -66,6 +71,13 @@ graph LR
   CPYBUS_API_001 -->|implements| f_src_consilium___init___py_1
   f_tests_test_api_py_2["tests/test_api.py:2"]
   CPYBUS_API_001 -->|tested-by| f_tests_test_api_py_2
+  CPYBUS_CHAT_001["Chat Q&A surface — retrieve-then-answer, deliberation opt-in<br><small>CPYBUS-CHAT-001</small>"]
+  f_src_consilium_chat_py_12["src/consilium/chat.py:12"]
+  CPYBUS_CHAT_001 -->|implements| f_src_consilium_chat_py_12
+  f_src_consilium_server_py_331["src/consilium/server.py:331"]
+  CPYBUS_CHAT_001 -->|implements| f_src_consilium_server_py_331
+  f_tests_test_chat_py_2["tests/test_chat.py:2"]
+  CPYBUS_CHAT_001 -->|tested-by| f_tests_test_chat_py_2
   CPYBUS_CLI_001["CLI interface — deliberate and check commands<br><small>CPYBUS-CLI-001</small>"]
   f_src_consilium_cli_py_2["src/consilium/cli.py:2"]
   CPYBUS_CLI_001 -->|implements| f_src_consilium_cli_py_2
@@ -93,8 +105,8 @@ graph LR
   CPYEXT_DOCRAG_001["Doc-RAG — ingest reference documents for retrieval<br><small>CPYEXT-DOCRAG-001</small>"]
   f_src_consilium_cli_py_425["src/consilium/cli.py:425"]
   CPYEXT_DOCRAG_001 -->|implements| f_src_consilium_cli_py_425
-  f_src_consilium_rag_py_3["src/consilium/rag.py:3"]
-  CPYEXT_DOCRAG_001 -->|implements| f_src_consilium_rag_py_3
+  f_src_consilium_rag_py_15["src/consilium/rag.py:15"]
+  CPYEXT_DOCRAG_001 -->|implements| f_src_consilium_rag_py_15
   f_tests_test_rag_py_3["tests/test_rag.py:3"]
   CPYEXT_DOCRAG_001 -->|tested-by| f_tests_test_rag_py_3
   CPYEXT_LG_001["LangGraph orchestration mode<br><small>CPYEXT-LG-001</small>"]
@@ -114,8 +126,8 @@ graph LR
   f_tests_test_voices_py_3["tests/test_voices.py:3"]
   CPYEXT_LTL_001 -->|tested-by| f_tests_test_voices_py_3
   CPYEXT_RAG_001["RAG context injection from past deliberation runs<br><small>CPYEXT-RAG-001</small>"]
-  f_src_consilium_rag_py_2["src/consilium/rag.py:2"]
-  CPYEXT_RAG_001 -->|implements| f_src_consilium_rag_py_2
+  f_src_consilium_rag_py_14["src/consilium/rag.py:14"]
+  CPYEXT_RAG_001 -->|implements| f_src_consilium_rag_py_14
   f_tests_test_rag_py_2["tests/test_rag.py:2"]
   CPYEXT_RAG_001 -->|tested-by| f_tests_test_rag_py_2
   CPYMOD_DIA_001["Dialectic deliberation mode — Sequential + Skeptic challenger<br><small>CPYMOD-DIA-001</small>"]
@@ -133,6 +145,11 @@ graph LR
   CPYMOD_TRI_001 -->|implements| f_src_consilium_modes_trias_py_11
   f_tests_test_trias_py_2["tests/test_trias.py:2"]
   CPYMOD_TRI_001 -->|tested-by| f_tests_test_trias_py_2
+  CPYSRV_AUTH_001["HTTP access control — optional API key and per-caller rate limit<br><small>CPYSRV-AUTH-001</small>"]
+  f_src_consilium_server_py_38["src/consilium/server.py:38"]
+  CPYSRV_AUTH_001 -->|implements| f_src_consilium_server_py_38
+  f_tests_test_server_py_3["tests/test_server.py:3"]
+  CPYSRV_AUTH_001 -->|tested-by| f_tests_test_server_py_3
   CPYSRV_HTTP_001["HTTP server — POST /deliberate and the / web UI<br><small>CPYSRV-HTTP-001</small>"]
   f_src_consilium_server_py_8["src/consilium/server.py:8"]
   CPYSRV_HTTP_001 -->|implements| f_src_consilium_server_py_8
@@ -151,10 +168,11 @@ _Area-level coupling: one box per area (N caps), arrow A->B = some capability in
 
 ```mermaid
 graph LR
-  a_CPYBUS["CPYBUS<br><small>6 caps</small>"]
+  a_CPYBUS["CPYBUS<br><small>7 caps</small>"]
   a_CPYEXT["CPYEXT<br><small>4 caps</small>"]
   a_CPYMOD["CPYMOD<br><small>3 caps</small>"]
-  a_CPYSRV["CPYSRV<br><small>2 caps</small>"]
+  a_CPYSRV["CPYSRV<br><small>3 caps</small>"]
+  a_CPYBUS --> a_CPYEXT
   a_CPYBUS --> a_CPYMOD
   a_CPYEXT --> a_CPYBUS
   a_CPYMOD --> a_CPYBUS

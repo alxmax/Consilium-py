@@ -36,7 +36,7 @@ export OPENROUTER_API_KEY=sk-or-...
 
 | Extra | What it adds | Install |
 |---|---|---|
-| `[server]` | FastAPI HTTP server — `POST /deliberate` over HTTP | `pip install 'consilium-py[server]'` |
+| `[server]` | FastAPI HTTP server — `POST /deliberate` and `POST /ask` over HTTP | `pip install 'consilium-py[server]'` |
 | `[rag]` | ChromaDB context injection — retrieves similar past decisions **and ingested reference docs** ([details](#rag--document-ingestion)) | `pip install 'consilium-py[rag]'` |
 | `[langgraph]` | LangGraph orchestration mode replacing the sequential pipeline | `pip install 'consilium-py[langgraph]'` |
 
@@ -163,6 +163,46 @@ curl -X POST http://localhost:8123/deliberate \
 ```
 
 Request body fields: `proposal` (required), `context`, `mode` (`sequential` / `dialectic` / `trias`), `model` — all optional except `proposal`. If `model` is omitted, `CONSILIUM_MODEL` env var is used.
+
+### Chat Q&A — `POST /ask`
+
+A question is not a code-change proposal: the deliberation pipeline classifies it
+`not_a_proposal` and discards its own result, so routing chat through
+`/deliberate` pays for 3–10 voice calls to reach a one-call answer. `/ask`
+retrieves from the ingested-doc corpus and answers directly, and returns the
+chunks it used in `sources` so the grounding is verifiable.
+
+```bash
+consilium ingest ./docs          # seed the corpus first ([rag] extra)
+
+curl -X POST http://localhost:8123/ask \
+  -H "Content-Type: application/json" \
+  -d '{"question": "What retry budget do the voices use?"}'
+# → {"verdict":"ANSWER","recommendation":"...","sources":["voices.md#2"],"mode":"chat"}
+```
+
+Fields: `question` (required), `rag` (default `true`), `model`, and `mode`. Leave
+`mode` unset for the cheap grounded answer; set it (`sequential` / `dialectic` /
+`trias`) to opt into a full deliberation when the input really is a proposal.
+The same surface is available in Python as `consilium.chat.ask(...)`, without the
+`[server]` extra.
+
+### Serving beyond localhost
+
+`consilium serve` binds `127.0.0.1` and both controls below are off by default,
+so local use is unchanged. Set them before exposing the port:
+
+| Env var | Effect |
+|---|---|
+| `CONSILIUM_API_KEY` | When set, `/deliberate` and `/ask` require a matching `X-API-Key` header (401 otherwise). Unset = no auth. |
+| `CONSILIUM_RATE_LIMIT` | Requests per 60 s per caller (default `30`, `0` disables). Exceeding it returns 429. In-process, per worker — not a distributed quota. |
+| `CONSILIUM_HOME` | Storage root for `runs/` and `chroma/`. Defaults to `~/.consilium`, which is the *service account's* home under a server — set this to a persistent volume. |
+
+> **RAG is single-tenant.** There is one collection and no per-caller scope key,
+> and `rag=true` indexes every submitted question. On a shared deployment one
+> caller's questions and documents become retrievable by the next. Keep `rag`
+> off for multi-tenant traffic until a scope key exists — a retrofit cannot
+> attribute records already written, and cannot recall what was already served.
 
 ### No-API-key backend (claude-cli)
 

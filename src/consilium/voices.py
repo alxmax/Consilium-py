@@ -166,11 +166,28 @@ _PLAIN_ANSWER_SYSTEM = (
 )
 
 
-def plain_answer(user_msg: str, model: str) -> str:
+def _with_context(user_msg: str, context: str) -> str:
+    """Prepend retrieved context to the user message, or return it unchanged.
+
+    The bypass answer paths take `user_msg` only; without this the RAG block
+    `deliberate()` builds is discarded and the reply is silently ungrounded.
+    """
+    if not context.strip():
+        return user_msg
+    return f"{context}\n\n---\n\n{user_msg}"
+
+
+def plain_answer(user_msg: str, model: str, context: str = "") -> str:
     """Single conversational reply for input that is not a deliberation
     (greeting / chit-chat / empty). Routes through `call_voice`, so it honors the
-    same Anthropic-vs-LiteLLM dispatch as the deliberating voices."""
-    return call_voice("assistant", _PLAIN_ANSWER_SYSTEM, user_msg, model)
+    same Anthropic-vs-LiteLLM dispatch as the deliberating voices.
+
+    `context` carries any retrieved RAG block so the reply is grounded in the
+    same material a full deliberation would have seen.
+    """
+    return call_voice(
+        "assistant", _PLAIN_ANSWER_SYSTEM, _with_context(user_msg, context), model
+    )
 
 
 _SHORT_RESPONSE_SYSTEM = (
@@ -180,8 +197,10 @@ _SHORT_RESPONSE_SYSTEM = (
 )
 
 
-def short_response(user_msg: str, model: str) -> str:
+def short_response(user_msg: str, model: str, context: str = "") -> str:
     """Concise reply for the scale_down (compressed) path, where a full
     deliberation is overkill. Produces the actual short response the path
     promises, instead of leaking the 'give a short response' instruction."""
-    return call_voice("assistant", _SHORT_RESPONSE_SYSTEM, user_msg, model)
+    return call_voice(
+        "assistant", _SHORT_RESPONSE_SYSTEM, _with_context(user_msg, context), model
+    )

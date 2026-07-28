@@ -226,6 +226,31 @@ class TestPlainAnswer(unittest.TestCase):
         self.assertIn("2 sentences", system)
         self.assertEqual(user_msg, "trivial change")
 
+    def test_plain_answer_forwards_context_to_the_model(self):
+        """Retrieved context reaches the model — otherwise the answer is ungrounded."""
+        from consilium import voices
+        with patch.object(voices, "call_voice", return_value="grounded") as mock:
+            voices.plain_answer("what is X?", "m", context="RELEVANT DOCS:\n  - [a.md#0] 'X is 42'")
+        _name, _system, user_msg, _model = mock.call_args.args
+        self.assertIn("X is 42", user_msg)
+        self.assertIn("what is X?", user_msg)
+
+    def test_short_response_forwards_context_to_the_model(self):
+        """The scale_down path is grounded too, not just the not_a_proposal path."""
+        from consilium import voices
+        with patch.object(voices, "call_voice", return_value="short") as mock:
+            voices.short_response("bump the timeout", "m", context="RELEVANT DOCS:\n  - [t.md#0] 'timeout is 30s'")
+        _name, _system, user_msg, _model = mock.call_args.args
+        self.assertIn("timeout is 30s", user_msg)
+
+    def test_plain_answer_without_context_sends_bare_message(self):
+        """No context means no wrapper — a greeting must not gain an empty docs block."""
+        from consilium import voices
+        with patch.object(voices, "call_voice", return_value="hi") as mock:
+            voices.plain_answer("hello", "m")
+        _name, _system, user_msg, _model = mock.call_args.args
+        self.assertEqual(user_msg, "hello")
+
 
 if __name__ == "__main__":
     unittest.main()

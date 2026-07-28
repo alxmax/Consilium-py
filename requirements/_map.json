@@ -77,7 +77,9 @@
         "`rag=True` enables RAG context injection (requires `consilium-py[rag]` extra; see CPYEXT-RAG-001).",
         "The return type is always `consilium.models.Report`.",
         "When the selected mode returns a report with `reason == \"not_a_proposal\"` (a non-deliberation input — greeting, chit-chat, or empty), `deliberate()` shall replace it with a plain answer rather than return the `BLOCK`: a `Report` with `verdict = \"ANSWER\"`, the conversational reply from a single `voices.plain_answer()` call in `recommendation`, empty `voices`, and `confidence = 0.0`. Such answers are not persisted to RAG. (Problems and decision-questions are reframed into candidates by the Generator and never carry this reason; dataless predictions use the `no_data` gate, a low-confidence STOP.)",
-        "When the selected mode returns a report with `reason == \"scale_down\"` (a trivial request the deliberation compressed to a short answer), `deliberate()` shall replace the placeholder recommendation with an actual reply from a single `voices.short_response()` call, keeping the verdict — producing the 2-sentence response the compressed path promises instead of leaking the instruction."
+        "When the selected mode returns a report with `reason == \"scale_down\"` (a trivial request the deliberation compressed to a short answer), `deliberate()` shall replace the placeholder recommendation with an actual reply from a single `voices.short_response()` call, keeping the verdict — producing the 2-sentence response the compressed path promises instead of leaking the instruction.",
+        "Both bypass calls (`plain_answer`, `short_response`) shall receive the assembled `context` — including any RAG block — via their `context` argument. These paths discard the pipeline result, so without this the reply is produced with no sight of the retrieved material and is silently ungrounded while the surface implies otherwise.",
+        "When `rag=True`, `deliberate()` shall populate `Report.sources` with the retrieved doc-chunk ids returned by `build_rag_bundle`, on both the ANSWER path and the normal aggregated path. With `rag=False` it shall be empty. Grounding that the caller cannot inspect is indistinguishable from no grounding."
       ],
       "verify": [],
       "notes": [],
@@ -91,9 +93,12 @@
         "Given `mode=\"unknown\"`, when `deliberate` is called, then `ValueError` is raised.",
         "Given `CONSILIUM_MODEL=claude-haiku-4-5` in env, when `deliberate(\"test\", model=\"claude-sonnet-4-6\")` is called, then all voice calls use `claude-haiku-4-5`.",
         "Given the selected mode returns a report with `reason == \"not_a_proposal\"`, when `deliberate` is called, then the returned report has `verdict == \"ANSWER\"` with `recommendation` supplied by `plain_answer()` (tested-by `tests/test_api.py::TestNonDeliberationAnswer`).",
-        "Given the selected mode returns a report with `reason == \"scale_down\"`, when `deliberate` is called, then `report.recommendation` is the output of `short_response()` and the verdict is unchanged (tested-by `tests/test_api.py::TestNonDeliberationAnswer::test_scale_down_gets_real_short_response`)."
+        "Given the selected mode returns a report with `reason == \"scale_down\"`, when `deliberate` is called, then `report.recommendation` is the output of `short_response()` and the verdict is unchanged (tested-by `tests/test_api.py::TestNonDeliberationAnswer::test_scale_down_gets_real_short_response`).",
+        "Given `rag=True` and a RAG block naming a fact, when a `not_a_proposal` or `scale_down` report is returned, then that block reaches `plain_answer` / `short_response` via `context` (tested-by `tests/test_api.py::TestBypassAnswersAreGrounded::test_not_a_proposal_answer_receives_rag_context` and `test_scale_down_response_receives_rag_context`).",
+        "Given `rag=False`, when `deliberate` is called, then the bypass call receives `context == \"\"` (tested-by `tests/test_api.py::TestBypassAnswersAreGrounded::test_answer_without_rag_passes_empty_context`).",
+        "Given `rag=True` and retrieval returning `[\"spec.md#0\"]`, when `deliberate` is called, then `report.sources == [\"spec.md#0\"]` on both the ANSWER and aggregated paths, and is empty when `rag=False` (tested-by `tests/test_api.py::TestBypassAnswersAreGrounded::test_answer_reports_the_sources_it_was_grounded_in`, `test_deliberated_verdict_reports_sources_too`, `test_sources_empty_when_rag_disabled`)."
       ],
-      "accept": "- Given `mode=\"sequential\"`, when `deliberate` is called, then `report.mode == \"sequential\"`.\n- Given `mode=\"trias\"`, when `deliberate` is called, then `report.mode == \"trias\"`.\n- Given `mode=\"langgraph\"`, when `deliberate` is called, then `report.mode == \"langgraph\"`.\n- Given `mode=\"unknown\"`, when `deliberate` is called, then `ValueError` is raised.\n- Given `CONSILIUM_MODEL=claude-haiku-4-5` in env, when `deliberate(\"test\", model=\"claude-sonnet-4-6\")` is called, then all voice calls use `claude-haiku-4-5`.\n- Given the selected mode returns a report with `reason == \"not_a_proposal\"`, when `deliberate` is called, then the returned report has `verdict == \"ANSWER\"` with `recommendation` supplied by `plain_answer()` (tested-by `tests/test_api.py::TestNonDeliberationAnswer`).\n- Given the selected mode returns a report with `reason == \"scale_down\"`, when `deliberate` is called, then `report.recommendation` is the output of `short_response()` and the verdict is unchanged (tested-by `tests/test_api.py::TestNonDeliberationAnswer::test_scale_down_gets_real_short_response`).",
+      "accept": "- Given `mode=\"sequential\"`, when `deliberate` is called, then `report.mode == \"sequential\"`.\n- Given `mode=\"trias\"`, when `deliberate` is called, then `report.mode == \"trias\"`.\n- Given `mode=\"langgraph\"`, when `deliberate` is called, then `report.mode == \"langgraph\"`.\n- Given `mode=\"unknown\"`, when `deliberate` is called, then `ValueError` is raised.\n- Given `CONSILIUM_MODEL=claude-haiku-4-5` in env, when `deliberate(\"test\", model=\"claude-sonnet-4-6\")` is called, then all voice calls use `claude-haiku-4-5`.\n- Given the selected mode returns a report with `reason == \"not_a_proposal\"`, when `deliberate` is called, then the returned report has `verdict == \"ANSWER\"` with `recommendation` supplied by `plain_answer()` (tested-by `tests/test_api.py::TestNonDeliberationAnswer`).\n- Given the selected mode returns a report with `reason == \"scale_down\"`, when `deliberate` is called, then `report.recommendation` is the output of `short_response()` and the verdict is unchanged (tested-by `tests/test_api.py::TestNonDeliberationAnswer::test_scale_down_gets_real_short_response`).\n- Given `rag=True` and a RAG block naming a fact, when a `not_a_proposal` or `scale_down` report is returned, then that block reaches `plain_answer` / `short_response` via `context` (tested-by `tests/test_api.py::TestBypassAnswersAreGrounded::test_not_a_proposal_answer_receives_rag_context` and `test_scale_down_response_receives_rag_context`).\n- Given `rag=False`, when `deliberate` is called, then the bypass call receives `context == \"\"` (tested-by `tests/test_api.py::TestBypassAnswersAreGrounded::test_answer_without_rag_passes_empty_context`).\n- Given `rag=True` and retrieval returning `[\"spec.md#0\"]`, when `deliberate` is called, then `report.sources == [\"spec.md#0\"]` on both the ANSWER and aggregated paths, and is empty when `rag=False` (tested-by `tests/test_api.py::TestBypassAnswersAreGrounded::test_answer_reports_the_sources_it_was_grounded_in`, `test_deliberated_verdict_reports_sources_too`, `test_sources_empty_when_rag_disabled`).",
       "input": "",
       "output": "",
       "desc": "",
@@ -119,6 +124,66 @@
         {
           "role": "tested-by",
           "loc": "tests/test_api.py:2"
+        }
+      ],
+      "test_exempt": null,
+      "milestone": null,
+      "priority": "",
+      "risks": []
+    },
+    {
+      "id": "CPYBUS-CHAT-001",
+      "layer": "bus",
+      "status": "confirmed",
+      "area": "CPYBUS",
+      "title": "Chat Q&A surface — retrieve-then-answer, deliberation opt-in",
+      "intent": "",
+      "contract": [
+        "`ask(question, model=DEFAULT_MODEL, rag=True, mode=None)` shall return a `Report`.",
+        "With `mode is None` (the default) it shall NOT invoke any deliberation mode. It shall build the RAG block via `build_rag_bundle(question)` when `rag` is true, pass that block to `plain_answer(..., context=...)`, and return `verdict=\"ANSWER\"`, `confidence=0.0`, `voices=[]`, `reason=\"chat_answer\"`, `pipeline_executed=False`, `mode=\"chat\"`, and `sources` = the retrieved doc-chunk ids.",
+        "With `mode` set to a member of `_SUPPORTED_MODES` it shall delegate to `deliberate(question, model=..., mode=mode, rag=rag)` and return its `Report` unchanged. A `mode` outside that set shall raise `ValueError`.",
+        "`rag` shall default to **true**, unlike `deliberate()`: grounding is the point of a Q&A surface, whereas a deliberation usually has the diff in hand. With `rag=False` no retrieval shall occur and `sources` shall be empty.",
+        "`CONSILIUM_MODEL` shall override the `model` argument, as everywhere else.",
+        "The module shall not import `fastapi`, so the chat surface is usable without the `[server]` extra."
+      ],
+      "verify": [],
+      "notes": [],
+      "current_impl": [
+        "`src/consilium/chat.py`",
+        "`src/consilium/server.py` (the `POST /ask` transport shim)"
+      ],
+      "acc": [
+        "Given a question and `mode=None`, when `ask` is called, then `deliberate` is not called and `verdict == \"ANSWER\"` (tested-by `tests/test_chat.py::TestAskDefaultPath::test_does_not_run_the_voice_pipeline`).",
+        "Given a retrieved block containing a fact, when `ask` is called, then that text reaches `plain_answer`'s `context` argument (tested-by `tests/test_chat.py::TestAskDefaultPath::test_answer_is_grounded_in_retrieved_context`).",
+        "Given retrieval returning `[\"spec.md#0\"]`, when `ask` is called, then `Report.sources == [\"spec.md#0\"]` (tested-by `tests/test_chat.py::TestAskDefaultPath::test_reports_its_sources`).",
+        "Given `rag=False`, when `ask` is called, then `build_rag_bundle` is not called and `sources` is empty (tested-by `tests/test_chat.py::TestAskDefaultPath::test_rag_disabled_skips_retrieval_and_reports_no_sources`).",
+        "Given `mode=\"sequential\"`, when `ask` is called, then `deliberate` is called once with that mode and `plain_answer` is not called (tested-by `tests/test_chat.py::TestAskDeliberateOptIn::test_explicit_mode_runs_the_full_deliberation`).",
+        "Given `mode=\"nonsense\"`, when `ask` is called, then `ValueError` is raised (tested-by `tests/test_chat.py::TestAskDeliberateOptIn::test_unknown_mode_is_rejected`).",
+        "Given the `[server]` extra, when `POST /ask` is called, then the body's `recommendation` and `sources` are returned and an unknown `mode` yields HTTP 400 rather than 500 (tested-by `tests/test_server.py::TestAskRoute`)."
+      ],
+      "accept": "- Given a question and `mode=None`, when `ask` is called, then `deliberate` is not called and `verdict == \"ANSWER\"` (tested-by `tests/test_chat.py::TestAskDefaultPath::test_does_not_run_the_voice_pipeline`).\n- Given a retrieved block containing a fact, when `ask` is called, then that text reaches `plain_answer`'s `context` argument (tested-by `tests/test_chat.py::TestAskDefaultPath::test_answer_is_grounded_in_retrieved_context`).\n- Given retrieval returning `[\"spec.md#0\"]`, when `ask` is called, then `Report.sources == [\"spec.md#0\"]` (tested-by `tests/test_chat.py::TestAskDefaultPath::test_reports_its_sources`).\n- Given `rag=False`, when `ask` is called, then `build_rag_bundle` is not called and `sources` is empty (tested-by `tests/test_chat.py::TestAskDefaultPath::test_rag_disabled_skips_retrieval_and_reports_no_sources`).\n- Given `mode=\"sequential\"`, when `ask` is called, then `deliberate` is called once with that mode and `plain_answer` is not called (tested-by `tests/test_chat.py::TestAskDeliberateOptIn::test_explicit_mode_runs_the_full_deliberation`).\n- Given `mode=\"nonsense\"`, when `ask` is called, then `ValueError` is raised (tested-by `tests/test_chat.py::TestAskDeliberateOptIn::test_unknown_mode_is_rejected`).\n- Given the `[server]` extra, when `POST /ask` is called, then the body's `recommendation` and `sources` are returned and an unknown `mode` yields HTTP 400 rather than 500 (tested-by `tests/test_server.py::TestAskRoute`).",
+      "input": "",
+      "output": "",
+      "desc": "",
+      "deps": [
+        "CPYBUS-VOI-001",
+        "CPYEXT-DOCRAG-001"
+      ],
+      "used_by": [],
+      "satisfies": [],
+      "satisfied_by": [],
+      "members": [
+        {
+          "role": "implements",
+          "loc": "src/consilium/chat.py:12"
+        },
+        {
+          "role": "implements",
+          "loc": "src/consilium/server.py:331"
+        },
+        {
+          "role": "tested-by",
+          "loc": "tests/test_chat.py:2"
         }
       ],
       "test_exempt": null,
@@ -337,6 +402,7 @@
       "deps": [],
       "used_by": [
         "CPYBUS-AGG-001",
+        "CPYBUS-CHAT-001",
         "CPYBUS-EXPLAIN-001",
         "CPYBUS-SKEPTIC-001",
         "CPYEXT-LG-001",
@@ -405,7 +471,9 @@
       "deps": [
         "CPYEXT-RAG-001"
       ],
-      "used_by": [],
+      "used_by": [
+        "CPYBUS-CHAT-001"
+      ],
       "satisfies": [],
       "satisfied_by": [],
       "members": [
@@ -415,7 +483,7 @@
         },
         {
           "role": "implements",
-          "loc": "src/consilium/rag.py:3"
+          "loc": "src/consilium/rag.py:15"
         },
         {
           "role": "tested-by",
@@ -571,6 +639,9 @@
         "When `chromadb` is not installed, any call into the RAG module shall raise `ImportError` with a `pip install consilium-py[rag]` hint — not silently skip.",
         "The RAG context block, when non-empty, shall be prepended to `inp.context` before voices run, ahead of any user-supplied `--context` content.",
         "The ChromaDB store is global (`~/.consilium/chroma/`). A per-project store (`.consilium/chroma/` in the repo) would be more isolated but requires project-root detection; global is simpler and sufficient for the current scope.",
+        "`build_rag_bundle(proposal)` shall return `(context_block, doc_source_ids)` from a **single** retrieval pass, where each id is `\"<source>#<chunk_index>\"`. `build_rag_context(proposal)` shall return only its first element, preserving its existing signature. Past-run snippets shall NOT be cited: they are prior deliberations, not source documents.",
+        "The storage root shall be resolvable at call time via `runs_dir()` / `chroma_dir()`, which return `$CONSILIUM_HOME/runs` and `$CONSILIUM_HOME/chroma` when `CONSILIUM_HOME` is set and `~/.consilium/...` otherwise. Resolution must be per call, not at import: under a server the process home is the service account's, often ephemeral (containers) or shared, so the location has to be settable from outside the package.",
+        "**Single-tenant only.** No record written by `index()` or `ingest_path()` carries a user/tenant field, and the `where` filters cannot select on one; with `rag=True` every submitted question is also indexed. On a shared deployment one caller's questions and documents are retrievable by the next. `rag=True` shall not be enabled on multi-tenant traffic until a scope key exists. This is stated as a documented constraint because the retrofit is not fully reversible: the corpus rebuilds from `runs_dir()` and the original files, but records already written carry no attribution to sort by, and what was already served cannot be recalled.",
         "Migration note: `consilium_runs` (the pre-cosine, default-distance collection) is superseded by `consilium_runs_v2`, not migrated automatically — mixing L2 and cosine vectors in one index would make distances meaningless. If the new collection is empty and the old one has data, `retrieve()`/`retrieve_docs()` print an upgrade-specific stderr hint (distinct from the generic empty-index message) pointing at `consilium index` to rebuild."
       ],
       "verify": [],
@@ -586,9 +657,11 @@
         "Given a run with `verdict=\"STOP\"` or `confidence<0.5`, when `retrieve()` is called with a query that would otherwise match it, then it is excluded from the results.",
         "Given `chromadb` not installed, when `index()` or `retrieve()` is called, then `ImportError` is raised with the install hint.",
         "Given an empty index, when `retrieve()` is called, then a message is printed to stderr and `[]` is returned.",
-        "Given the legacy `consilium_runs` collection has data and `consilium_runs_v2` is empty, when `retrieve()`/`retrieve_docs()` is called, then an upgrade-specific stderr hint naming both collections is printed."
+        "Given the legacy `consilium_runs` collection has data and `consilium_runs_v2` is empty, when `retrieve()`/`retrieve_docs()` is called, then an upgrade-specific stderr hint naming both collections is printed.",
+        "Given a doc chunk from `README.md` at chunk index 2, when `build_rag_bundle()` is called, then the text contains `RELEVANT DOCS` and the ids are `[\"README.md#2\"]`; given an empty index, both halves are empty (tested-by `tests/test_rag.py::TestBuildRagBundle`).",
+        "Given `CONSILIUM_HOME` set to a temp dir, when `runs_dir()` / `chroma_dir()` are called, then they resolve beneath it, and `save_run()` writes there rather than under the user's home; unset, they resolve under `~/.consilium` (tested-by `tests/test_rag.py::TestStorageRootOverride`)."
       ],
-      "accept": "- Given a seeded index with one run (verdict GO, proposal \"Add health check\"), when `retrieve(\"Add health endpoint\")` is called, then the returned snippet contains \"GO\" and the proposal text.\n- Given `max_distance=0.55` and a query with no similar run, when `retrieve()` is called, then it returns `[]` without raising.\n- Given a run with `verdict=\"STOP\"` or `confidence<0.5`, when `retrieve()` is called with a query that would otherwise match it, then it is excluded from the results.\n- Given `chromadb` not installed, when `index()` or `retrieve()` is called, then `ImportError` is raised with the install hint.\n- Given an empty index, when `retrieve()` is called, then a message is printed to stderr and `[]` is returned.\n- Given the legacy `consilium_runs` collection has data and `consilium_runs_v2` is empty, when `retrieve()`/`retrieve_docs()` is called, then an upgrade-specific stderr hint naming both collections is printed.",
+      "accept": "- Given a seeded index with one run (verdict GO, proposal \"Add health check\"), when `retrieve(\"Add health endpoint\")` is called, then the returned snippet contains \"GO\" and the proposal text.\n- Given `max_distance=0.55` and a query with no similar run, when `retrieve()` is called, then it returns `[]` without raising.\n- Given a run with `verdict=\"STOP\"` or `confidence<0.5`, when `retrieve()` is called with a query that would otherwise match it, then it is excluded from the results.\n- Given `chromadb` not installed, when `index()` or `retrieve()` is called, then `ImportError` is raised with the install hint.\n- Given an empty index, when `retrieve()` is called, then a message is printed to stderr and `[]` is returned.\n- Given the legacy `consilium_runs` collection has data and `consilium_runs_v2` is empty, when `retrieve()`/`retrieve_docs()` is called, then an upgrade-specific stderr hint naming both collections is printed.\n- Given a doc chunk from `README.md` at chunk index 2, when `build_rag_bundle()` is called, then the text contains `RELEVANT DOCS` and the ids are `[\"README.md#2\"]`; given an empty index, both halves are empty (tested-by `tests/test_rag.py::TestBuildRagBundle`).\n- Given `CONSILIUM_HOME` set to a temp dir, when `runs_dir()` / `chroma_dir()` are called, then they resolve beneath it, and `save_run()` writes there rather than under the user's home; unset, they resolve under `~/.consilium` (tested-by `tests/test_rag.py::TestStorageRootOverride`).",
       "input": "",
       "output": "",
       "desc": "",
@@ -604,7 +677,7 @@
       "members": [
         {
           "role": "implements",
-          "loc": "src/consilium/rag.py:2"
+          "loc": "src/consilium/rag.py:14"
         },
         {
           "role": "tested-by",
@@ -800,6 +873,60 @@
       "risks": []
     },
     {
+      "id": "CPYSRV-AUTH-001",
+      "layer": "bus",
+      "status": "confirmed",
+      "area": "CPYSRV",
+      "title": "HTTP access control — optional API key and per-caller rate limit",
+      "intent": "",
+      "contract": [
+        "When `CONSILIUM_API_KEY` is unset or empty, `POST /deliberate` and `POST /ask` shall be reachable without credentials (the localhost default).",
+        "When it is set, both routes shall require a matching `X-API-Key` request header and return HTTP **401** otherwise, without invoking `deliberate()` or `ask()`. The comparison shall use `hmac.compare_digest` so a wrong key leaks no prefix information by timing.",
+        "`CONSILIUM_RATE_LIMIT` shall cap requests per caller per 60-second window, defaulting to `30`. Exceeding the cap shall return HTTP **429**. A value of `0` or less shall disable the cap; an unparseable value shall fall back to the default rather than raise.",
+        "The caller shall be identified by `X-API-Key` when present, else by client IP — behind a proxy every caller otherwise shares one IP and one bucket.",
+        "The limiter is in-process and per worker: it is a single-process cap, NOT a distributed quota. This is a documented limitation, not a defect.",
+        "The `GET /` UI route shall not be rate limited.",
+        "`reset_rate_limit()` shall clear all buckets."
+      ],
+      "verify": [],
+      "notes": [],
+      "current_impl": [
+        "`src/consilium/server.py`"
+      ],
+      "acc": [
+        "Given no `CONSILIUM_API_KEY`, when `POST /deliberate` is called with no header, then 200 (tested-by `tests/test_server.py::TestApiKeyAuth::test_no_key_configured_leaves_endpoint_open`).",
+        "Given `CONSILIUM_API_KEY=secret`, when the header is absent or wrong, then 401 and `deliberate` is not called (tested-by `tests/test_server.py::TestApiKeyAuth::test_configured_key_rejects_request_without_header` and `test_configured_key_rejects_wrong_header`).",
+        "Given `CONSILIUM_API_KEY=secret`, when `X-API-Key: secret` is sent, then 200 (tested-by `tests/test_server.py::TestApiKeyAuth::test_correct_key_is_accepted`).",
+        "Given `CONSILIUM_RATE_LIMIT=2`, when three requests are made, then the third returns 429 (tested-by `tests/test_server.py::TestRateLimit::test_requests_beyond_the_limit_get_429`).",
+        "Given `CONSILIUM_RATE_LIMIT=1`, when `GET /` is called twice, then both return 200 (tested-by `tests/test_server.py::TestRateLimit::test_limit_does_not_apply_to_the_ui_route`).",
+        "Given `CONSILIUM_API_KEY=secret`, when `POST /ask` is called with no header, then 401 and `ask` is not called (tested-by `tests/test_server.py::TestAskRoute::test_is_behind_the_same_api_key`)."
+      ],
+      "accept": "- Given no `CONSILIUM_API_KEY`, when `POST /deliberate` is called with no header, then 200 (tested-by `tests/test_server.py::TestApiKeyAuth::test_no_key_configured_leaves_endpoint_open`).\n- Given `CONSILIUM_API_KEY=secret`, when the header is absent or wrong, then 401 and `deliberate` is not called (tested-by `tests/test_server.py::TestApiKeyAuth::test_configured_key_rejects_request_without_header` and `test_configured_key_rejects_wrong_header`).\n- Given `CONSILIUM_API_KEY=secret`, when `X-API-Key: secret` is sent, then 200 (tested-by `tests/test_server.py::TestApiKeyAuth::test_correct_key_is_accepted`).\n- Given `CONSILIUM_RATE_LIMIT=2`, when three requests are made, then the third returns 429 (tested-by `tests/test_server.py::TestRateLimit::test_requests_beyond_the_limit_get_429`).\n- Given `CONSILIUM_RATE_LIMIT=1`, when `GET /` is called twice, then both return 200 (tested-by `tests/test_server.py::TestRateLimit::test_limit_does_not_apply_to_the_ui_route`).\n- Given `CONSILIUM_API_KEY=secret`, when `POST /ask` is called with no header, then 401 and `ask` is not called (tested-by `tests/test_server.py::TestAskRoute::test_is_behind_the_same_api_key`).",
+      "input": "",
+      "output": "",
+      "desc": "",
+      "deps": [
+        "CPYSRV-HTTP-001"
+      ],
+      "used_by": [],
+      "satisfies": [],
+      "satisfied_by": [],
+      "members": [
+        {
+          "role": "implements",
+          "loc": "src/consilium/server.py:38"
+        },
+        {
+          "role": "tested-by",
+          "loc": "tests/test_server.py:3"
+        }
+      ],
+      "test_exempt": null,
+      "milestone": null,
+      "priority": "",
+      "risks": []
+    },
+    {
       "id": "CPYSRV-HTTP-001",
       "layer": "bus",
       "status": "confirmed",
@@ -831,6 +958,7 @@
         "CPYBUS-API-001"
       ],
       "used_by": [
+        "CPYSRV-AUTH-001",
         "CPYSRV-SERVE-001"
       ],
       "satisfies": [],
@@ -920,6 +1048,14 @@
       "CPYMOD-TRI-001"
     ],
     [
+      "CPYBUS-CHAT-001",
+      "CPYBUS-VOI-001"
+    ],
+    [
+      "CPYBUS-CHAT-001",
+      "CPYEXT-DOCRAG-001"
+    ],
+    [
       "CPYBUS-CLI-001",
       "CPYBUS-API-001"
     ],
@@ -998,6 +1134,10 @@
     [
       "CPYMOD-TRI-001",
       "CPYBUS-SKEPTIC-001"
+    ],
+    [
+      "CPYSRV-AUTH-001",
+      "CPYSRV-HTTP-001"
     ],
     [
       "CPYSRV-HTTP-001",

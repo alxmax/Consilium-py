@@ -1,0 +1,70 @@
+"""Chat Q&A surface: retrieve-then-answer by default, deliberation on request."""
+# tested-by: CPYBUS-CHAT-001
+import unittest
+from unittest.mock import patch
+
+from consilium.models import Report
+
+_BLOCK = "RELEVANT DOCS:\n  - [spec.md#0] 'the retry budget is 3'"
+_BUNDLE = (_BLOCK, ["spec.md#0"])
+
+
+def _go_report() -> Report:
+    return Report(verdict="GO", confidence=0.9, recommendation="deliberated", voices=[])
+
+
+class TestAskDefaultPath(unittest.TestCase):
+    def test_does_not_run_the_voice_pipeline(self):
+        """A question must not burn 3-10 voice calls only to discard them."""
+        from consilium import chat
+        with patch("consilium.rag.build_rag_bundle", return_value=_BUNDLE), \
+                patch("consilium.chat.plain_answer", return_value="It is 3."), \
+                patch("consilium.chat.deliberate") as delib:
+            report = chat.ask("what is the retry budget?")
+        delib.assert_not_called()
+        self.assertEqual(report.verdict, "ANSWER")
+        self.assertEqual(report.recommendation, "It is 3.")
+
+    def test_answer_is_grounded_in_retrieved_context(self):
+        from consilium import chat
+        with patch("consilium.rag.build_rag_bundle", return_value=_BUNDLE), \
+                patch("consilium.chat.plain_answer", return_value="It is 3.") as pa:
+            chat.ask("what is the retry budget?")
+        self.assertIn("retry budget is 3", pa.call_args.kwargs["context"])
+
+    def test_reports_its_sources(self):
+        from consilium import chat
+        with patch("consilium.rag.build_rag_bundle", return_value=_BUNDLE), \
+                patch("consilium.chat.plain_answer", return_value="It is 3."):
+            report = chat.ask("what is the retry budget?")
+        self.assertEqual(report.sources, ["spec.md#0"])
+
+    def test_rag_disabled_skips_retrieval_and_reports_no_sources(self):
+        from consilium import chat
+        with patch("consilium.rag.build_rag_bundle") as bundle, \
+                patch("consilium.chat.plain_answer", return_value="hi"):
+            report = chat.ask("hello", rag=False)
+        bundle.assert_not_called()
+        self.assertEqual(report.sources, [])
+        self.assertEqual(report.recommendation, "hi")
+
+
+class TestAskDeliberateOptIn(unittest.TestCase):
+    def test_explicit_mode_runs_the_full_deliberation(self):
+        from consilium import chat
+        with patch("consilium.chat.deliberate", return_value=_go_report()) as delib, \
+                patch("consilium.chat.plain_answer") as pa:
+            report = chat.ask("Add Redis caching", mode="sequential")
+        pa.assert_not_called()
+        delib.assert_called_once()
+        self.assertEqual(delib.call_args.kwargs["mode"], "sequential")
+        self.assertEqual(report.verdict, "GO")
+
+    def test_unknown_mode_is_rejected(self):
+        from consilium import chat
+        with self.assertRaises(ValueError):
+            chat.ask("Add Redis caching", mode="nonsense")
+
+
+if __name__ == "__main__":
+    unittest.main()

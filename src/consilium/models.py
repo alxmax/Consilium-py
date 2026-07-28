@@ -57,3 +57,7 @@ class Report(BaseModel):
     pipeline_executed: bool = True
     mode: str = "sequential"
     skeptic: SkepticObjection | None = None
+    # Ingested-doc chunks the answer was grounded in, as "<source>#<chunk_index>".
+    # Empty when RAG is off or nothing was retrieved. Without this the retrieved
+    # material is visible to the voices but unverifiable by the caller.
+    sources: list[str] = []

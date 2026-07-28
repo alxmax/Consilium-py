@@ -4,6 +4,9 @@
     "CPYBUS-AGG-001": {
       "src/consilium/aggregator.py": "07fc97d35a3405f34b37ff2b5c7bfd2fda47ba977bf75bd5248dfb2d994a2734"
     },
+    "CPYBUS-CHAT-001": {
+      "src/consilium/chat.py": "92c6aa4081b0d589089519cfa32897e9837d38eff4984603b9d998b05da9dc2b"
+    },
     "CPYBUS-EXPLAIN-001": {
       "src/consilium/explain.py": "56bdf45ab315ead372c7b6d06be8af24737c70fdfbd70a4ff11615f6e0b72437"
     },
@@ -21,9 +24,6 @@
     },
     "CPYMOD-TRI-001": {
       "src/consilium/modes/trias.py": "740dbae1a32eb6d11185194f89ae82fa35fc01c91492ca7de21389131cd6ff87"
-    },
-    "CPYSRV-HTTP-001": {
-      "src/consilium/server.py": "aa5b7cf67a67b14533fa5babd00efc01cf49bc8aa0cb53d96ba2c0f0f6d1b3da"
     }
   }
 }
