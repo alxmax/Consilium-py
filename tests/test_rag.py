@@ -11,6 +11,8 @@ from contextlib import redirect_stderr
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 try:
     import chromadb  # noqa: F401
     _HAS_CHROMADB = True
@@ -258,6 +260,192 @@ class TestBuildRagBundle(unittest.TestCase):
             text, sources = rag.build_rag_bundle("Add health check")
         self.assertEqual(text, "")
         self.assertEqual(sources, [])
+
+
+class TestTenantScoping(unittest.TestCase):
+    """Two modes: tenant=None keeps the shared single-user corpus (current
+    behaviour); a tenant string scopes reads AND writes to that tenant."""
+
+    def test_index_tags_the_run_with_the_tenant(self):
+        from consilium import rag
+        from consilium.models import DeliberationInput, Report
+        col = _mock_collection(count=0)
+        report = Report(verdict="GO", confidence=0.9, recommendation="ok", voices=[])
+        with _patched(col):
+            rag.index("r1", DeliberationInput(proposal="x"), report, tenant="acme")
+        self.assertEqual(col.upsert.call_args.kwargs["metadatas"][0]["tenant"], "acme")
+
+    def test_index_omits_tenant_key_when_none(self):
+        """Single-user mode must not write a tenant field at all."""
+        from consilium import rag
+        from consilium.models import DeliberationInput, Report
+        col = _mock_collection(count=0)
+        report = Report(verdict="GO", confidence=0.9, recommendation="ok", voices=[])
+        with _patched(col):
+            rag.index("r1", DeliberationInput(proposal="x"), report)
+        self.assertNotIn("tenant", col.upsert.call_args.kwargs["metadatas"][0])
+
+    def test_retrieve_filters_by_tenant(self):
+        from consilium import rag
+        col = _mock_collection(count=1, query_results={
+            "ids": [["r1"]], "documents": [["d"]],
+            "metadatas": [[{"kind": "run", "verdict": "GO", "confidence": 0.9,
+                            "recommendation": "ok", "mode": "sequential"}]],
+            "distances": [[0.1]]})
+        with _patched(col):
+            rag.retrieve("q", tenant="acme")
+        clauses = col.query.call_args.kwargs["where"]["$and"]
+        self.assertIn({"tenant": "acme"}, clauses)
+
+    def test_retrieve_without_tenant_adds_no_tenant_clause(self):
+        from consilium import rag
+        col = _mock_collection(count=1, query_results={
+            "ids": [["r1"]], "documents": [["d"]],
+            "metadatas": [[{"kind": "run", "verdict": "GO", "confidence": 0.9,
+                            "recommendation": "ok", "mode": "sequential"}]],
+            "distances": [[0.1]]})
+        with _patched(col):
+            rag.retrieve("q")
+        clauses = col.query.call_args.kwargs["where"]["$and"]
+        self.assertNotIn("tenant", json.dumps(clauses))
+
+    def test_doc_retrieval_filters_by_tenant(self):
+        from consilium import rag
+        col = _mock_collection(count=1, query_results={
+            "ids": [["doc:a.md:0"]], "documents": [["d"]],
+            "metadatas": [[{"kind": "doc", "source": "a.md", "chunk_index": 0}]],
+            "distances": [[0.1]]})
+        with _patched(col):
+            rag.retrieve_docs("q", tenant="acme")
+        where = col.query.call_args.kwargs["where"]
+        self.assertIn({"tenant": "acme"}, where["$and"])
+
+    def test_ingest_tags_chunks_with_tenant(self):
+        from consilium import rag
+        col = _mock_collection(count=0)
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "a.md").write_text("hello world", encoding="utf-8")
+            with _patched(col):
+                rag.ingest_path(tmp, tenant="acme")
+        self.assertEqual(col.upsert.call_args.kwargs["metadatas"][0]["tenant"], "acme")
+
+    def test_untagged_legacy_records_are_invisible_to_a_tenant(self):
+        """Fail closed: a record written before tenancy existed carries no tenant
+        key, so a scoped query must not return it."""
+        from consilium import rag
+        col = _mock_collection(count=1, query_results={
+            "ids": [["doc:a.md:0"]], "documents": [["d"]],
+            "metadatas": [[{"kind": "doc", "source": "a.md", "chunk_index": 0}]],
+            "distances": [[0.1]]})
+        with _patched(col):
+            rag.retrieve_docs("q", tenant="acme")
+        # the tenant clause is sent to chromadb, which excludes docs lacking the key
+        self.assertIn({"tenant": "acme"}, col.query.call_args.kwargs["where"]["$and"])
+
+
+class TestDocumentExtractors(unittest.TestCase):
+    """Pluggable per-suffix extractors, each guarded by its optional dependency."""
+
+    def test_html_is_reduced_to_visible_text(self):
+        pytest.importorskip("bs4")
+        from consilium import rag
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "a.html"
+            p.write_text(
+                "<html><head><style>b{}</style><script>x=1</script></head>"
+                "<body><h1>Title</h1><p>Body sentence.</p></body></html>",
+                encoding="utf-8")
+            text = rag.extract_text(p)
+        self.assertIn("Title", text)
+        self.assertIn("Body sentence.", text)
+        self.assertNotIn("x=1", text)  # script/style stripped, not embedded
+
+    def test_docx_paragraphs_are_extracted(self):
+        docx = pytest.importorskip("docx")
+        from consilium import rag
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "a.docx"
+            d = docx.Document()
+            d.add_paragraph("First para.")
+            d.add_paragraph("Second para.")
+            d.save(str(p))
+            text = rag.extract_text(p)
+        self.assertIn("First para.", text)
+        self.assertIn("Second para.", text)
+
+    def test_pdf_pages_are_extracted(self):
+        fitz = pytest.importorskip("fitz")
+        from consilium import rag
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "a.pdf"
+            doc = fitz.open()
+            doc.new_page().insert_text((72, 72), "Hello from page one")
+            doc.save(str(p))
+            doc.close()
+            text = rag.extract_text(p)
+        self.assertIn("Hello from page one", text)
+
+    def test_csv_yields_a_structural_summary_not_the_rows(self):
+        """Numbers must not be answerable from retrieved rows — only structure."""
+        from consilium import rag
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "trades.csv"
+            rows = ["symbol,profit"] + [f"S{i},{i * 111}" for i in range(200)]
+            p.write_text("\n".join(rows), encoding="utf-8")
+            text = rag.extract_text(p)
+        self.assertIn("symbol", text)
+        self.assertIn("profit", text)
+        self.assertIn("200", text)            # row count is reported
+        self.assertNotIn("S199", text)        # the tail is NOT embedded
+        self.assertIn("not a source for numeric answers", text)
+
+    def test_unsupported_suffix_returns_none(self):
+        from consilium import rag
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "a.png"
+            p.write_bytes(b"\x89PNG\r\n")
+            self.assertIsNone(rag.extract_text(p))
+
+    def test_plain_text_still_works_without_any_extra(self):
+        from consilium import rag
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "a.md"
+            p.write_text("# Heading", encoding="utf-8")
+            self.assertIn("Heading", rag.extract_text(p))
+
+    def test_missing_dependency_raises_with_install_hint(self):
+        from consilium import rag
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "a.pdf"
+            p.write_bytes(b"%PDF-1.4")
+            with patch.dict(sys.modules, {"fitz": None}):
+                with self.assertRaises(ImportError) as ctx:
+                    rag.extract_text(p)
+        self.assertIn("consilium-py[docs]", str(ctx.exception))
+
+    def test_ingest_routes_html_through_the_extractor(self):
+        """The stored chunk must be extracted text, not raw markup."""
+        pytest.importorskip("bs4")
+        from consilium import rag
+        col = _mock_collection(count=0)
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "a.html").write_text(
+                "<html><body><p>ingested html body</p></body></html>", encoding="utf-8")
+            with _patched(col):
+                n = rag.ingest_path(tmp)
+        self.assertEqual(n, 1)
+        stored = col.upsert.call_args.kwargs["documents"][0]
+        self.assertIn("ingested html body", stored)
+        self.assertNotIn("<p>", stored)  # would pass on raw read_text — the real check
+
+    def test_ingest_skips_an_unsupported_binary(self):
+        from consilium import rag
+        col = _mock_collection(count=0)
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "shot.png").write_bytes(b"\x89PNG\r\n\x1a\n")
+            with _patched(col), redirect_stderr(io.StringIO()):
+                n = rag.ingest_path(tmp)
+        self.assertEqual(n, 0)
 
 
 class TestStorageRootOverride(unittest.TestCase):

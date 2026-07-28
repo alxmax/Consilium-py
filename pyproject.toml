@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "consilium-py"
-version = "1.0.0"
+version = "1.1.0"
 description = "Dialectical code-change deliberation as a Python package"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -37,6 +37,9 @@ Issues = "https://github.com/alxmax/Consilium-py/issues"
 dev = ["pyright", "pytest"]
 server = ["fastapi>=0.100", "uvicorn>=0.20"]
 rag = ["chromadb>=0.4,<0.6"]
+# Document extractors for `consilium ingest` (PDF / DOCX / HTML).
+# CSV needs nothing extra — it is summarised with the stdlib csv module.
+docs = ["pymupdf>=1.23", "python-docx>=1.0", "beautifulsoup4>=4.12"]
 langgraph = ["langgraph>=0.2,<0.3", "langchain-core>=0.2,<0.3"]
 
 [project.scripts]

@@ -5,7 +5,7 @@
       "src/consilium/aggregator.py": "07fc97d35a3405f34b37ff2b5c7bfd2fda47ba977bf75bd5248dfb2d994a2734"
     },
     "CPYBUS-CHAT-001": {
-      "src/consilium/chat.py": "92c6aa4081b0d589089519cfa32897e9837d38eff4984603b9d998b05da9dc2b"
+      "src/consilium/chat.py": "b10685c3bb8454a8ad481159672303eff65e5ad3bdc139fdd9189416257cf6d5"
     },
     "CPYBUS-EXPLAIN-001": {
       "src/consilium/explain.py": "56bdf45ab315ead372c7b6d06be8af24737c70fdfbd70a4ff11615f6e0b72437"

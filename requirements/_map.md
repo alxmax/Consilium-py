@@ -1,5 +1,5 @@
 ---
-generated: 2026-07-28 22:08
+generated: 2026-07-28 23:47
 nodes: 17
 edges: 29
 ---
@@ -74,8 +74,8 @@ graph LR
   CPYBUS_CHAT_001["Chat Q&A surface — retrieve-then-answer, deliberation opt-in<br><small>CPYBUS-CHAT-001</small>"]
   f_src_consilium_chat_py_12["src/consilium/chat.py:12"]
   CPYBUS_CHAT_001 -->|implements| f_src_consilium_chat_py_12
-  f_src_consilium_server_py_331["src/consilium/server.py:331"]
-  CPYBUS_CHAT_001 -->|implements| f_src_consilium_server_py_331
+  f_src_consilium_server_py_364["src/consilium/server.py:364"]
+  CPYBUS_CHAT_001 -->|implements| f_src_consilium_server_py_364
   f_tests_test_chat_py_2["tests/test_chat.py:2"]
   CPYBUS_CHAT_001 -->|tested-by| f_tests_test_chat_py_2
   CPYBUS_CLI_001["CLI interface — deliberate and check commands<br><small>CPYBUS-CLI-001</small>"]
@@ -105,8 +105,8 @@ graph LR
   CPYEXT_DOCRAG_001["Doc-RAG — ingest reference documents for retrieval<br><small>CPYEXT-DOCRAG-001</small>"]
   f_src_consilium_cli_py_425["src/consilium/cli.py:425"]
   CPYEXT_DOCRAG_001 -->|implements| f_src_consilium_cli_py_425
-  f_src_consilium_rag_py_15["src/consilium/rag.py:15"]
-  CPYEXT_DOCRAG_001 -->|implements| f_src_consilium_rag_py_15
+  f_src_consilium_rag_py_20["src/consilium/rag.py:20"]
+  CPYEXT_DOCRAG_001 -->|implements| f_src_consilium_rag_py_20
   f_tests_test_rag_py_3["tests/test_rag.py:3"]
   CPYEXT_DOCRAG_001 -->|tested-by| f_tests_test_rag_py_3
   CPYEXT_LG_001["LangGraph orchestration mode<br><small>CPYEXT-LG-001</small>"]
@@ -126,8 +126,8 @@ graph LR
   f_tests_test_voices_py_3["tests/test_voices.py:3"]
   CPYEXT_LTL_001 -->|tested-by| f_tests_test_voices_py_3
   CPYEXT_RAG_001["RAG context injection from past deliberation runs<br><small>CPYEXT-RAG-001</small>"]
-  f_src_consilium_rag_py_14["src/consilium/rag.py:14"]
-  CPYEXT_RAG_001 -->|implements| f_src_consilium_rag_py_14
+  f_src_consilium_rag_py_19["src/consilium/rag.py:19"]
+  CPYEXT_RAG_001 -->|implements| f_src_consilium_rag_py_19
   f_tests_test_rag_py_2["tests/test_rag.py:2"]
   CPYEXT_RAG_001 -->|tested-by| f_tests_test_rag_py_2
   CPYMOD_DIA_001["Dialectic deliberation mode — Sequential + Skeptic challenger<br><small>CPYMOD-DIA-001</small>"]

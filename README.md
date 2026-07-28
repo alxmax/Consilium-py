@@ -38,6 +38,7 @@ export OPENROUTER_API_KEY=sk-or-...
 |---|---|---|
 | `[server]` | FastAPI HTTP server — `POST /deliberate` and `POST /ask` over HTTP | `pip install 'consilium-py[server]'` |
 | `[rag]` | ChromaDB context injection — retrieves similar past decisions **and ingested reference docs** ([details](#rag--document-ingestion)) | `pip install 'consilium-py[rag]'` |
+| `[docs]` | Document extractors for `consilium ingest` — PDF, DOCX, HTML | `pip install 'consilium-py[docs]'` |
 | `[langgraph]` | LangGraph orchestration mode replacing the sequential pipeline | `pip install 'consilium-py[langgraph]'` |
 
 ## Deliberation modes
@@ -112,6 +113,34 @@ by cosine similarity from a local ChromaDB store (`~/.consilium/chroma/`):
 - **`RELEVANT DOCS`** — chunks of reference documents you've ingested (coding
   standards, an architecture note, an API guide), cited by source in the report.
   So Control can check a change against *"conform CODING_STANDARDS.md"*.
+
+#### Supported formats
+
+`consilium ingest` dispatches on file suffix. Text formats need nothing; the
+rest come with the `[docs]` extra. Anything else is skipped with a message on
+stderr — never silently.
+
+| Suffix | Handling | Needs |
+|---|---|---|
+| `.md` `.txt` `.py` `.rst` | read as-is | — |
+| `.pdf` | text per page (PyMuPDF — no external binary) | `[docs]` |
+| `.docx` | paragraph text | `[docs]` |
+| `.html` `.htm` | visible text; `<script>`/`<style>` stripped | `[docs]` |
+| `.csv` | **schema summary only** — see below | — |
+| images | not ingested | — |
+
+**CSV is summarised, not embedded.** You get the filename, column list, row
+count, and the first few rows *for shape only*. Its rows are deliberately not
+indexed: a top-k cosine match returns a handful of arbitrary rows, and a model
+will happily compute a confident, wrong aggregate from them. Retrieval should
+answer *"which dataset holds this?"* — the figure itself must come from a
+deterministic query against the real file. The same reasoning excludes `.sql`
+(a schema script is not data).
+
+Images are excluded for a different reason: OCR needs an external `tesseract`
+binary, and a silently empty extraction is worse than an explicit skip. The
+registry (`_EXTRACTORS` in `rag.py`) is one dict entry per format, so adding OCR
+later touches nothing else in the ingest path.
 
 ```bash
 pip install 'consilium-py[rag]'
@@ -194,15 +223,35 @@ so local use is unchanged. Set them before exposing the port:
 
 | Env var | Effect |
 |---|---|
-| `CONSILIUM_API_KEY` | When set, `/deliberate` and `/ask` require a matching `X-API-Key` header (401 otherwise). Unset = no auth. |
+| `CONSILIUM_API_KEY` | When set, `/deliberate` and `/ask` require a matching `X-API-Key` header (401 otherwise). Unset = no auth. Single-tenant: all callers share one corpus. |
+| `CONSILIUM_API_KEYS` | `tenant:key,tenant:key` — turns on **multi-tenant** mode. Each key authenticates *and* selects that tenant's RAG scope. Takes precedence over the singular variable. |
 | `CONSILIUM_RATE_LIMIT` | Requests per 60 s per caller (default `30`, `0` disables). Exceeding it returns 429. In-process, per worker — not a distributed quota. |
 | `CONSILIUM_HOME` | Storage root for `runs/` and `chroma/`. Defaults to `~/.consilium`, which is the *service account's* home under a server — set this to a persistent volume. |
 
-> **RAG is single-tenant.** There is one collection and no per-caller scope key,
-> and `rag=true` indexes every submitted question. On a shared deployment one
-> caller's questions and documents become retrievable by the next. Keep `rag`
-> off for multi-tenant traffic until a scope key exists — a retrofit cannot
-> attribute records already written, and cannot recall what was already served.
+#### Tenancy — two modes
+
+`tenant=None` (the default, and what `CONSILIUM_API_KEY` alone gives you) keeps
+one shared corpus. Setting `CONSILIUM_API_KEYS` scopes both reads and writes per
+key:
+
+```bash
+export CONSILIUM_API_KEYS="alice:sk-alice-…,bob:sk-bob-…"
+consilium ingest ./alice-docs --tenant alice
+# a request with alice's key can never retrieve bob's chunks, and vice versa
+```
+
+The tenant is resolved **server-side from the authenticated key** — a `tenant`
+field in the request body is ignored, so a caller cannot pick their own scope.
+
+Two consequences worth knowing before you switch a live corpus:
+
+- **Scoped mode fails closed.** Records written before tenancy existed carry no
+  tenant key, so a scoped query cannot see them. That is deliberate — the
+  alternative is leaking pre-tenancy data to whichever tenant asks first.
+  Re-ingest under a tenant (`consilium ingest <path> --tenant <id>`) to restore
+  visibility.
+- **The switch is not retroactive.** Anything already served from a shared
+  corpus stays served; scoping only governs what happens from now on.
 
 ### No-API-key backend (claude-cli)
 

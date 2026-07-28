@@ -25,6 +25,7 @@ def ask(
     model: str = _DEFAULT_MODEL,
     rag: bool = True,
     mode: str | None = None,
+    tenant: str | None = None,
 ) -> Report:
     """Answer `question`, grounded in the ingested-doc corpus.
 
@@ -41,13 +42,13 @@ def ask(
             raise ValueError(
                 f"Unknown mode: {mode!r}. Supported: {', '.join(_SUPPORTED_MODES)}"
             )
-        return deliberate(question, model=model, mode=mode, rag=rag)
+        return deliberate(question, model=model, mode=mode, rag=rag, tenant=tenant)
 
     context = ""
     sources: list[str] = []
     if rag:
         from consilium.rag import build_rag_bundle  # noqa: PLC0415
-        context, sources = build_rag_bundle(question)
+        context, sources = build_rag_bundle(question, tenant=tenant)
 
     return Report(
         verdict="ANSWER",
