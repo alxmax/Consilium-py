@@ -90,6 +90,19 @@ GEN_NO_DATA = json.dumps({
     "abstain": {"triggered": True, "reason": "no_data"},
 })
 
+CONS_SCALE_UP = json.dumps({
+    "scores": [
+        {
+            "id": "approach_a",
+            "reversibility": "partial",
+            "magnitude": "major",
+            "regression_risk": {"net_concern": 0.4, "magnitude": "major"},
+            "irreversibility_flag": False,
+            "meta_recommendation": "scale_up",
+        }
+    ]
+})
+
 CONS_SCALE_DOWN = json.dumps({
     "scores": [
         {
@@ -188,6 +201,33 @@ class TestRunSequential(unittest.TestCase):
         """Part 1: the bypass reason is exposed for callers (CLI clarify branch)."""
         report = self._run(CONS_GO, GEN_NOT_PROPOSAL, CTRL_GO)
         self.assertEqual(report.reason, "not_a_proposal")
+
+    def test_scale_up_sets_machine_reason(self):
+        """ADAPT_EXTENDED used to be the ONE bypass with `reason=None`, so a caller
+        could only tell "needs a clarifying question" from "voices disagree" by
+        string-matching the English `action` prose — both map to MODIFY/0.1."""
+        report = self._run(CONS_SCALE_UP, GEN_GO, CTRL_GO)
+        self.assertEqual(report.verdict, "MODIFY")
+        self.assertEqual(report.reason, "scale_up")
+
+    def test_every_bypass_sets_machine_reason(self):
+        """Invariant: any short-circuit out of the aggregate path exposes a MACHINE
+        reason. Callers branch on `Report.reason`; a null one forces them back to
+        parsing English prose, which silently breaks when the wording changes."""
+        cases = {
+            "voice_unparseable": (CONS_GO, "not json at all", CTRL_GO),
+            "glossary_fail": (CONS_GO, GEN_GO, json.dumps({"glossary_fail": True})),
+            "irreversibility_no_consent": (CONS_IRREV, GEN_GO, CTRL_GO),
+            "not_a_proposal": (CONS_GO, GEN_NOT_PROPOSAL, CTRL_GO),
+            "multiple_triggers": (CONS_SCALE_UP, GEN_SOFT_ABSTAIN, CTRL_SUBSTANTIAL),
+            "substantial_disagreement": (CONS_GO, GEN_GO, CTRL_SUBSTANTIAL),
+            "no_data": (CONS_GO, GEN_NO_DATA, CTRL_GO),
+            "scale_down": (CONS_SCALE_DOWN, GEN_GO, CTRL_GO),
+            "scale_up": (CONS_SCALE_UP, GEN_GO, CTRL_GO),
+        }
+        for expected, (cons, gen, ctrl) in cases.items():
+            with self.subTest(bypass=expected):
+                self.assertEqual(self._run(cons, gen, ctrl).reason, expected)
 
     def test_chosen_sketch_surfaced(self):
         """Part 2: the chosen candidate's how-to-implement detail reaches the Report."""
