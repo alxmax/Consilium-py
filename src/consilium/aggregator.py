@@ -140,6 +140,7 @@ def _run_sequential_scheme(
         return {
             "scheme": "sequential",
             "result": "ESCALATE",
+            "reason": "multiple_triggers",
             "triggers": triggers,
             "action": (
                 "Multiple critical signals detected simultaneously. "
@@ -185,6 +186,7 @@ def _run_sequential_scheme(
             "scheme": "sequential",
             "result": "ADAPT_EXTENDED",
             "meta_recommendation": "scale_up",
+            "reason": "scale_up",
             "action": "Extended deliberation required — ask user for clarification before proceeding",
         }
 

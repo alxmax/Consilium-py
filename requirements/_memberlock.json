@@ -2,7 +2,7 @@
   "_schema": 1,
   "members": {
     "CPYBUS-AGG-001": {
-      "src/consilium/aggregator.py": "07fc97d35a3405f34b37ff2b5c7bfd2fda47ba977bf75bd5248dfb2d994a2734"
+      "src/consilium/aggregator.py": "6674cbc47547e4b5a5c5b3daa9f8188b9e24fb431d3b7b3afec9b32eaeffda16"
     },
     "CPYBUS-CHAT-001": {
       "src/consilium/chat.py": "b10685c3bb8454a8ad481159672303eff65e5ad3bdc139fdd9189416257cf6d5"
