@@ -254,3 +254,92 @@ class TestPlainAnswer(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# ── truncated-voice envelope gate (measured 2026-07-29) ─────────────────────
+# A live deliberation was instrumented: Generator cut off mid-string at 729 chars and
+# Control at 747, both without a closing ``` fence. extract_json's brace-walk skipped the
+# incomplete OUTER object and returned the first complete INNER one — a single candidate
+# — as if it were the whole Generator output. Truthy, so the aggregator waved it through.
+
+# The measured Generator shape: outer object never closes, inner candidate does.
+TRUNCATED_GENERATOR = '''```json
+{
+  "candidates": [
+    {
+      "id": "do_nothing",
+      "summary": "Reject the change; keep current behavior.",
+      "sketch": "No code changes.",
+      "rationale": "Baseline for comparison.",
+      "downside_estimate": "goal remains unaddressed"
+    },
+    {
+      "id": "immediate_discipline_block",
+      "summary": "Check only the core disciplinary rules; if blocked, report'''
+
+
+def test_extract_json_still_recovers_the_nested_fragment():
+    """Pins the CAUSE, not the cure: extract_json is unchanged and still returns a
+    fragment here. The gate lives above it, so this stays true by design."""
+    from consilium.voices import extract_json
+    got = extract_json(TRUNCATED_GENERATOR)
+    assert got.get("id") == "do_nothing"      # an inner candidate, not the envelope
+    assert "candidates" not in got
+    assert got                                 # truthy — which is why `not out` missed it
+
+
+def test_envelope_gate_rejects_the_nested_fragment():
+    from consilium.voices import extract_json, looks_like_envelope
+    assert looks_like_envelope("generator", extract_json(TRUNCATED_GENERATOR)) is False
+
+
+def test_envelope_gate_accepts_a_complete_voice_output():
+    from consilium.voices import looks_like_envelope
+    assert looks_like_envelope("generator", {"candidates": [{"id": "a"}], "preferred": "a"})
+    assert looks_like_envelope("conservator", {"scores": []})
+    assert looks_like_envelope("control", {"verdicts": [], "glossary": {}})
+    assert looks_like_envelope("skeptic", {"can_object": False})
+
+
+def test_envelope_gate_accepts_the_shapes_the_aggregator_actually_tolerates():
+    """Not one canonical key per voice: _chosen_candidate reads Generator's legacy
+    `options` alongside `candidates`, and a Control output that only reached its
+    glossary is still a real envelope. Pinning this caught a false-positive that a
+    naive single-key check would have shipped."""
+    from consilium.voices import looks_like_envelope
+    assert looks_like_envelope("generator", {"preferred": "a", "options": [{"id": "a"}]})
+    assert looks_like_envelope("control", {"glossary_fail": False, "glossary": {}, "disagreements": []})
+
+
+def test_envelope_gate_rejects_a_fragment_of_any_voice():
+    """Fragments are list ELEMENTS — a candidate, a score, a verdict — and all carry a
+    top-level `id`, which no envelope does. That asymmetry is the discriminator."""
+    from consilium.voices import looks_like_envelope
+    assert looks_like_envelope("generator", {"id": "do_nothing", "summary": "x"}) is False
+    assert looks_like_envelope("conservator", {"id": "a", "regression_risk": {}}) is False
+    assert looks_like_envelope("control", {"id": "a", "valid": True, "issues": []}) is False
+
+
+def test_envelope_gate_tests_key_presence_not_emptiness():
+    """Control's objection in the deliberation: an abstain-only Generator legitimately
+    emits an EMPTY candidates list, and must not be misread as truncated. Verified
+    against the shipped prompts — every documented output block carries its key,
+    generator.md's abstain example included."""
+    from consilium.voices import looks_like_envelope
+    assert looks_like_envelope("generator", {"candidates": [], "abstain": {"triggered": True}})
+    assert looks_like_envelope("conservator", {"scores": []})
+
+
+def test_envelope_gate_rejects_empty_and_tolerates_unknown_shapes():
+    from consilium.voices import looks_like_envelope
+    assert looks_like_envelope("generator", {}) is False
+    # Unregistered voice / unrecognised shape: tolerated unless it looks like a fragment.
+    assert looks_like_envelope("some_future_voice", {"anything": 1}) is True
+    assert looks_like_envelope("some_future_voice", {"id": "frag"}) is False
+
+
+def test_every_json_voice_has_registered_envelope_keys():
+    """A JSON voice with no registered keys falls back to the fragment signature alone —
+    weaker. Adding one to _JSON_VOICES must mean registering its envelope keys."""
+    from consilium.voices import VOICE_ENVELOPE_KEYS, _JSON_VOICES
+    assert _JSON_VOICES <= set(VOICE_ENVELOPE_KEYS)
