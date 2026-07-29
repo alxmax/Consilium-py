@@ -26,6 +26,7 @@ def ask(
     rag: bool = True,
     mode: str | None = None,
     tenant: str | None = None,
+    context: str = "",
 ) -> Report:
     """Answer `question`, grounded in the ingested-doc corpus.
 
@@ -34,6 +35,12 @@ def ask(
 
     Unlike `deliberate()`, RAG is **on** by default — grounding is the point of a
     Q&A surface, whereas a deliberation is usually about a diff in hand.
+
+    `context` lets a caller supply its own grounding text (e.g. a host app's own
+    deterministic facts) independent of RAG retrieval. It is prepended to whatever
+    RAG contributes when `rag=True`, and is the only source of context when
+    `rag=False` — callers with no ingested corpus are not limited to an ungrounded
+    reply.
     """
     model = os.environ.get("CONSILIUM_MODEL", model)
 
@@ -44,11 +51,12 @@ def ask(
             )
         return deliberate(question, model=model, mode=mode, rag=rag, tenant=tenant)
 
-    context = ""
     sources: list[str] = []
     if rag:
         from consilium.rag import build_rag_bundle  # noqa: PLC0415
-        context, sources = build_rag_bundle(question, tenant=tenant)
+        rag_context, sources = build_rag_bundle(question, tenant=tenant)
+        if rag_context:
+            context = f"{context}\n\n{rag_context}" if context else rag_context
 
     return Report(
         verdict="ANSWER",
