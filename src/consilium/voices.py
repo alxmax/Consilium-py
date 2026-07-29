@@ -63,6 +63,54 @@ def extract_json(text: str) -> dict[str, Any]:
     return {}
 
 
+# The top-level key that ONLY a voice's OUTER envelope carries. Used to tell a
+# correctly-parsed voice output from a nested fragment that extract_json recovered.
+#
+# Why this is needed: extract_json's fallback retries raw_decode from each successive
+# '{'. That skips a stray brace in surrounding prose (its stated purpose), but on
+# TRUNCATED output it also walks past the incomplete outer object and returns the first
+# complete INNER one. Measured 2026-07-29: a Generator cut off mid-string at 729 chars
+# yielded `{"id": "do_nothing", "summary": ...}` — a single candidate — as if it were the
+# whole voice output. That dict is truthy, so the aggregator's `if not out` unparseable
+# check never fired and the run silently proceeded with candidates=[] and preferred=None.
+#
+# Key PRESENCE, never non-emptiness: a legitimate voice may return an empty list (an
+# abstain-only Generator still emits `candidates`). Verified against the shipped prompts —
+# every documented output block in generator/conservator/control.md carries its key,
+# including generator.md's abstain example.
+# Envelopes are recognised by ANY of these, not one canonical key: the aggregator
+# genuinely accepts more than one shape per voice (`_chosen_candidate` reads Generator's
+# legacy `options` as well as `candidates`, and a Control output that only reached its
+# glossary is still a real Control envelope).
+VOICE_ENVELOPE_KEYS = {
+    "generator": ("candidates", "options"),
+    "conservator": ("scores",),
+    "control": ("verdicts", "glossary", "glossary_fail", "disagreements"),
+    "skeptic": ("can_object",),
+}
+
+# The fragments extract_json recovers from truncated output are always ELEMENTS of a
+# voice's top-level list — a candidate, a score, a verdict — and every one of those
+# carries `id`. No voice envelope has a top-level `id`. That asymmetry is the
+# discriminator; the key list above is the fast path.
+_FRAGMENT_SIGNATURE = "id"
+
+
+def looks_like_envelope(voice_name: str, parsed: dict[str, Any]) -> bool:
+    """True if `parsed` is a voice's OUTER object rather than a fragment of one.
+
+    Deliberately permissive: an unrecognised shape passes unless it carries the
+    fragment signature, so a voice that legitimately returns a partial envelope (or a
+    future voice whose keys are not registered here) keeps the previous truthiness
+    behaviour instead of hard-failing every run.
+    """
+    if not parsed:
+        return False
+    if any(k in parsed for k in VOICE_ENVELOPE_KEYS.get(voice_name, ())):
+        return True
+    return _FRAGMENT_SIGNATURE not in parsed
+
+
 # Voices whose contract is a JSON object (parsed downstream by extract_json).
 # The `assistant` (plain_answer/short_response) and `explain` voices return prose
 # and must never be JSON-retried.
@@ -119,7 +167,10 @@ def call_voice(_voice_name: str, system_prompt: str, user_msg: str, model: str) 
             if proc.returncode != 0:
                 raise RuntimeError(f"claude -p failed ({proc.returncode}): {proc.stderr[:300]}")
             last_out = proc.stdout
-            if not expects_json or extract_json(last_out):
+            # Envelope shape, not mere truthiness: a truncated reply whose outer object
+            # never closed can still yield a truthy nested fragment, which used to count
+            # as success and burn the retry budget on attempt 1 without retrying at all.
+            if not expects_json or looks_like_envelope(_voice_name, extract_json(last_out)):
                 return last_out
         return last_out  # exhausted retries — let the aggregator flag it, as before
 

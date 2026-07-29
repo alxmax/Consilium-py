@@ -229,6 +229,34 @@ class TestRunSequential(unittest.TestCase):
             with self.subTest(bypass=expected):
                 self.assertEqual(self._run(cons, gen, ctrl).reason, expected)
 
+    def test_truncated_voice_blocks_instead_of_degrading_silently(self):
+        """Measured 2026-07-29: a Generator cut off mid-string yielded a truthy nested
+        fragment (one candidate), so the old `not out` check passed it and the cascade
+        ran with candidates=[] / preferred=None — a silent wrong-shaped deliberation
+        rather than a BLOCK."""
+        from tests.test_voices import TRUNCATED_GENERATOR
+        report = self._run(CONS_GO, TRUNCATED_GENERATOR, CTRL_GO)
+        self.assertEqual(report.verdict, "BLOCK")
+        self.assertEqual(report.reason, "voice_unparseable")
+
+    def test_block_names_which_voice_failed(self):
+        """`voices_failed` was computed by the aggregator but never reached Report, so a
+        caller could only say "one of the voices". Same shape of fix as `reason` (#56)."""
+        from tests.test_voices import TRUNCATED_GENERATOR
+        report = self._run(CONS_GO, TRUNCATED_GENERATOR, CTRL_GO)
+        self.assertEqual(report.voices_failed, ["generator"])
+
+    def test_voices_failed_is_empty_on_a_healthy_run(self):
+        self.assertEqual(self._run(CONS_GO, GEN_GO, CTRL_GO).voices_failed, [])
+
+    def test_empty_candidate_list_is_not_mistaken_for_truncation(self):
+        """Key presence, not non-emptiness — an abstain-only Generator is complete."""
+        gen = json.dumps({"candidates": [], "preferred": None,
+                          "abstain": {"triggered": True, "reason": "goal_undefined"}})
+        report = self._run(CONS_GO, gen, CTRL_GO)
+        self.assertNotEqual(report.reason, "voice_unparseable")
+        self.assertEqual(report.voices_failed, [])
+
     def test_chosen_sketch_surfaced(self):
         """Part 2: the chosen candidate's how-to-implement detail reaches the Report."""
         report = self._run(CONS_GO, GEN_GO_WITH_SKETCH, CTRL_GO)

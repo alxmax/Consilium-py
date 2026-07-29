@@ -54,6 +54,12 @@ class Report(BaseModel):
     # None on a normal aggregated verdict. Lets callers branch without parsing
     # the human-facing recommendation text.
     reason: str | None = None
+    # Voices whose output did not parse into their own envelope, when
+    # reason == "voice_unparseable". The aggregator already computed this to build its
+    # message; surfacing it lets a caller name WHICH voice failed instead of reporting a
+    # generic "one of the voices" — the difference between an actionable claude-cli
+    # flakiness report and a dead end. Empty on every other outcome.
+    voices_failed: list[str] = []
     pipeline_executed: bool = True
     mode: str = "sequential"
     skeptic: SkepticObjection | None = None

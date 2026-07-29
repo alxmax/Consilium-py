@@ -10,7 +10,7 @@ import statistics
 from typing import Any
 
 from consilium.models import DeliberationInput, Report, VoiceOutput
-from consilium.voices import extract_json
+from consilium.voices import extract_json, looks_like_envelope
 
 # ── internal scheme logic (adapted from scripts/aggregator.py) ──────────────
 
@@ -61,11 +61,17 @@ def _run_sequential_scheme(
 ) -> dict[str, Any]:
     triggers: list[str] = []
 
-    # An unparseable voice output ({} from extract_json) must never fall
-    # through: garbage used to aggregate to GO 0.9–1.0 with zero risk
-    # assessment — an unparseable Conservator silently disables the
-    # irreversibility veto. BLOCK explicitly, naming the failed voices, so
-    # it is never mislabeled as not_a_proposal (AC2).
+    # An unparseable voice output must never fall through: garbage used to
+    # aggregate to GO 0.9–1.0 with zero risk assessment — an unparseable
+    # Conservator silently disables the irreversibility veto. BLOCK explicitly,
+    # naming the failed voices, so it is never mislabeled as not_a_proposal (AC2).
+    #
+    # `looks_like_envelope`, not the old `not out`: {} is not the only bad parse.
+    # extract_json's brace-walk can recover a nested FRAGMENT from a truncated
+    # reply — a single candidate object out of a cut-off Generator — and that
+    # fragment is truthy, so `not out` waved it through and the cascade ran with
+    # candidates=[] / preferred=None instead of blocking. call_voice retries on
+    # the same predicate; this is the backstop for retries exhausted.
     unparseable = [
         name
         for name, out in (
@@ -73,7 +79,7 @@ def _run_sequential_scheme(
             ("control", control_out),
             ("conservator", conservator_out),
         )
-        if not out
+        if not looks_like_envelope(name, out)
     ]
     if unparseable:
         return {
@@ -344,6 +350,7 @@ def aggregate_sequential(
         chosen_sketch=sketch,
         chosen_rationale=candidate.get("rationale"),
         reason=agg.get("reason"),
+        voices_failed=agg.get("voices_failed") or [],
         pipeline_executed=True,
         mode="sequential",
     )
