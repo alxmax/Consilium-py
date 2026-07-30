@@ -66,6 +66,9 @@ For each `valid: true` candidate (except `do_nothing`), produce `tests_to_write`
 
 ## Output format
 
+Reply with ONLY the JSON object required for your role, inside a ```json fence —
+no prose, headings, or commentary before or after it. Close the fence.
+
 ```json
 {
   "glossary": {
