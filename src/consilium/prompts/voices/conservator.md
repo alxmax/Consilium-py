@@ -112,6 +112,9 @@ These three fields can coexist. A candidate can have `irreversibility_flag: true
 
 ## Output format
 
+Reply with ONLY the JSON object required for your role, inside a ```json fence —
+no prose, headings, or commentary before or after it. Close the fence.
+
 The `id` field must be preserved verbatim from input through all voice outputs.
 
 ```json

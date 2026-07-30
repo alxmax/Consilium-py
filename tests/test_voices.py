@@ -343,3 +343,45 @@ def test_every_json_voice_has_registered_envelope_keys():
     weaker. Adding one to _JSON_VOICES must mean registering its envelope keys."""
     from consilium.voices import VOICE_ENVELOPE_KEYS, _JSON_VOICES
     assert _JSON_VOICES <= set(VOICE_ENVELOPE_KEYS)
+
+
+# ── output discipline on attempt 1 (2026-07-29) ─────────────────────────────
+# Measured: voices emit their JSON in a fence and then append prose commentary. When the
+# closing fence is present extract_json works; when the model flows into prose without
+# closing it, the fence regex fails. stop_reason was "end_turn" — the model finished on
+# its own, so this is not a token cap.
+#
+# The instruction that prevents it already existed in the repo — but only on the RETRY
+# (voices.py appends it from attempt 2 on). Attempt 1 had no output-discipline rule at
+# all: each prompt's "## Output format" section showed a fenced example and said nothing
+# about what may precede or follow it. These pin the clause onto attempt 1.
+
+_NO_TRAILING_PROSE = "no prose, headings, or commentary before or after it"
+
+
+def test_json_voices_carry_the_output_discipline_clause_on_attempt_one():
+    from consilium.voices import load_prompt, _JSON_VOICES
+    for name in sorted(_JSON_VOICES):
+        assert _NO_TRAILING_PROSE in load_prompt(name), (
+            f"{name}.md must state the output discipline on the FIRST attempt; relying on "
+            "voices.py's retry to say it means every flaky reply costs an extra spawn"
+        )
+
+
+def test_the_clause_is_schema_neutral():
+    """It is shared verbatim across voices with structurally different envelopes —
+    skeptic's is `can_object`, not a list — so it must not name any envelope key."""
+    from consilium.voices import load_prompt, VOICE_ENVELOPE_KEYS
+    every_key = {k for keys in VOICE_ENVELOPE_KEYS.values() for k in keys}
+    for name in ("generator", "conservator", "control", "skeptic"):
+        clause_line = next(ln for ln in load_prompt(name).splitlines()
+                           if _NO_TRAILING_PROSE in ln or "ONLY the JSON object" in ln)
+        for key in every_key:
+            assert key not in clause_line, f"{name}: clause names envelope key {key!r}"
+
+
+def test_prose_voices_do_not_get_the_json_clause():
+    """assistant/explain return prose by contract — telling them to emit only JSON
+    would break them. The clause belongs to _JSON_VOICES only."""
+    from consilium.voices import load_prompt
+    assert _NO_TRAILING_PROSE not in load_prompt("explain")

@@ -39,6 +39,9 @@ Produce one focal verdict on the chosen candidate:
 
 ## Output format
 
+Reply with ONLY the JSON object required for your role, inside a ```json fence —
+no prose, headings, or commentary before or after it. Close the fence.
+
 ```json
 {
   "can_object": true,
