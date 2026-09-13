@@ -30,12 +30,23 @@ jobs:
   gate:
     name: requirement drift gate
     runs-on: ubuntu-latest
+    # The gate only reads the tree: no secrets, no write scope. Keep it that way so a
+    # fork PR cannot use this job for anything.
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      # Deliberately a @vN MAJOR ALIAS, not a SHA, unlike every other action here: the
+      # point of this pin is to consume requirement-manager the way its docs tell a
+      # consumer to, so a break in that published interface shows up here. The action
+      # runs THIS repo's vendored scripts/reqmap.py and brings its own setup-python,
+      # which is why the step below still finds a `python` on PATH.
+      - uses: alxmax/requirement-manager/check@v7
         with:
           python-version: "3.12"
-      - name: Requirement traceability drift gate
-        run: python scripts/reqmap.py gate
+      # Kept until the vendored engine is re-seeded: this copy is 2026-06-19.1, older
+      # than v4.0.0, so its bare `gate` does not yet fold in map freshness the way the
+      # action's `freshness: true` default assumes. Drop this step in the same commit
+      # that re-vendors reqmap.py.
       - name: Requirement map freshness
         run: python -X utf8 scripts/reqmap.py map --check
