@@ -1,7 +1,9 @@
 ---
-generated: 2026-07-30 11:51
-nodes: 17
-edges: 29
+generated: 2026-09-21
+engine: 2026-09-21.1
+nodes: 21
+edges: 35
+design pass-rate: 17% (3/18 source files without a design candidate)
 ---
 
 # Requirement Map
@@ -13,8 +15,10 @@ _Capabilities grouped by area; thick border = bus; arrows = `depends_on`. Edges 
 ```mermaid
 graph LR
   subgraph sg_CPYBUS["CPYBUS"]
-    CPYBUS_AGG_001["Sequential aggregation — veto cascade, voice extraction, Report assembly<br><small>CPYBUS-AGG-001</small>"]
+    CPYBUS_AGG_001["Sequential aggregation — veto cascade and verdict mapping<br><small>CPYBUS-AGG-001</small>"]
+    CPYBUS_AGGREPORT_001["Sequential aggregation — Report assembly<br><small>CPYBUS-AGGREPORT-001</small>"]
     CPYBUS_API_001["Public Python API — deliberate()<br><small>CPYBUS-API-001</small>"]
+    CPYBUS_APIANSWER_001["Public Python API — non-deliberation answers and RAG grounding<br><small>CPYBUS-APIANSWER-001</small>"]
     CPYBUS_CHAT_001["Chat Q&A surface — retrieve-then-answer, deliberation opt-in<br><small>CPYBUS-CHAT-001</small>"]
     CPYBUS_CLI_001["CLI interface — deliberate and check commands<br><small>CPYBUS-CLI-001</small>"]
     CPYBUS_EXPLAIN_001["Codebase explanation — explain_module and the explain CLI command<br><small>CPYBUS-EXPLAIN-001</small>"]
@@ -26,6 +30,8 @@ graph LR
     CPYEXT_LG_001["LangGraph orchestration mode<br><small>CPYEXT-LG-001</small>"]
     CPYEXT_LTL_001["Provider-agnostic voice dispatch via LiteLLM<br><small>CPYEXT-LTL-001</small>"]
     CPYEXT_RAG_001["RAG context injection from past deliberation runs<br><small>CPYEXT-RAG-001</small>"]
+    CPYEXT_RAGEXTRACT_001["RAG document extractors for non-plain-text formats<br><small>CPYEXT-RAGEXTRACT-001</small>"]
+    CPYEXT_RAGSTORE_001["RAG storage root, run persistence and tenancy<br><small>CPYEXT-RAGSTORE-001</small>"]
   end
   subgraph sg_CPYMOD["CPYMOD"]
     CPYMOD_DIA_001["Dialectic deliberation mode — Sequential + Skeptic challenger<br><small>CPYMOD-DIA-001</small>"]
@@ -42,9 +48,13 @@ graph LR
   CPYBUS_API_001 --> CPYMOD_TRI_001
   CPYBUS_CHAT_001 --> CPYEXT_DOCRAG_001
   CPYEXT_DOCRAG_001 --> CPYEXT_RAG_001
+  CPYEXT_RAGEXTRACT_001 --> CPYEXT_RAG_001
+  CPYEXT_RAGSTORE_001 --> CPYEXT_RAG_001
   CPYMOD_DIA_001 --> CPYMOD_SEQ_001
   style CPYBUS_AGG_001 stroke-width:3px
+  style CPYBUS_AGGREPORT_001 stroke-width:3px
   style CPYBUS_API_001 stroke-width:3px
+  style CPYBUS_APIANSWER_001 stroke-width:3px
   style CPYBUS_CHAT_001 stroke-width:3px
   style CPYBUS_CLI_001 stroke-width:3px
   style CPYBUS_EXPLAIN_001 stroke-width:3px
@@ -57,20 +67,30 @@ graph LR
 
 ## Requirement-to-Code
 
-_Each requirement → its code; arrow label = role (`implements` / `tested-by`). Red = confirmed but no code linked (a gap); grey = baseline/draft, not linked yet (expected)._
+_Each system/architecture requirement → its code; arrow label = role (`implements` / `tested-by`). Red = confirmed but no code linked (a gap); grey = baseline/draft, not linked yet (expected). Code-level requirements are omitted here (see the viewer)._
 
 ```mermaid
 graph LR
-  CPYBUS_AGG_001["Sequential aggregation — veto cascade, voice extraction, Report assembly<br><small>CPYBUS-AGG-001</small>"]
+  CPYBUS_AGG_001["Sequential aggregation — veto cascade and verdict mapping<br><small>CPYBUS-AGG-001</small>"]
   f_src_consilium_aggregator_py_6["src/consilium/aggregator.py:6"]
   CPYBUS_AGG_001 -->|implements| f_src_consilium_aggregator_py_6
   f_tests_test_sequential_py_3["tests/test_sequential.py:3"]
   CPYBUS_AGG_001 -->|tested-by| f_tests_test_sequential_py_3
+  CPYBUS_AGGREPORT_001["Sequential aggregation — Report assembly<br><small>CPYBUS-AGGREPORT-001</small>"]
+  f_src_consilium_aggregator_py_38_236["src/consilium/aggregator.py:38-236"]
+  CPYBUS_AGGREPORT_001 -->|implements| f_src_consilium_aggregator_py_38_236
+  f_tests_test_sequential_py_4["tests/test_sequential.py:4"]
+  CPYBUS_AGGREPORT_001 -->|tested-by| f_tests_test_sequential_py_4
   CPYBUS_API_001["Public Python API — deliberate()<br><small>CPYBUS-API-001</small>"]
   f_src_consilium___init___py_1["src/consilium/__init__.py:1"]
   CPYBUS_API_001 -->|implements| f_src_consilium___init___py_1
   f_tests_test_api_py_2["tests/test_api.py:2"]
   CPYBUS_API_001 -->|tested-by| f_tests_test_api_py_2
+  CPYBUS_APIANSWER_001["Public Python API — non-deliberation answers and RAG grounding<br><small>CPYBUS-APIANSWER-001</small>"]
+  f_src_consilium___init___py_49["src/consilium/__init__.py:49"]
+  CPYBUS_APIANSWER_001 -->|implements| f_src_consilium___init___py_49
+  f_tests_test_api_py_3["tests/test_api.py:3"]
+  CPYBUS_APIANSWER_001 -->|tested-by| f_tests_test_api_py_3
   CPYBUS_CHAT_001["Chat Q&A surface — retrieve-then-answer, deliberation opt-in<br><small>CPYBUS-CHAT-001</small>"]
   f_src_consilium_chat_py_12["src/consilium/chat.py:12"]
   CPYBUS_CHAT_001 -->|implements| f_src_consilium_chat_py_12
@@ -121,8 +141,8 @@ graph LR
   CPYEXT_LTL_001 -->|implements| f_src_consilium_cli_py_3
   f_src_consilium_voices_py_3["src/consilium/voices.py:3"]
   CPYEXT_LTL_001 -->|implements| f_src_consilium_voices_py_3
-  f_tests_test_api_py_3["tests/test_api.py:3"]
-  CPYEXT_LTL_001 -->|tested-by| f_tests_test_api_py_3
+  f_tests_test_api_py_4["tests/test_api.py:4"]
+  CPYEXT_LTL_001 -->|tested-by| f_tests_test_api_py_4
   f_tests_test_voices_py_3["tests/test_voices.py:3"]
   CPYEXT_LTL_001 -->|tested-by| f_tests_test_voices_py_3
   CPYEXT_RAG_001["RAG context injection from past deliberation runs<br><small>CPYEXT-RAG-001</small>"]
@@ -130,6 +150,16 @@ graph LR
   CPYEXT_RAG_001 -->|implements| f_src_consilium_rag_py_19
   f_tests_test_rag_py_2["tests/test_rag.py:2"]
   CPYEXT_RAG_001 -->|tested-by| f_tests_test_rag_py_2
+  CPYEXT_RAGEXTRACT_001["RAG document extractors for non-plain-text formats<br><small>CPYEXT-RAGEXTRACT-001</small>"]
+  f_src_consilium_rag_py_118_170["src/consilium/rag.py:118-170"]
+  CPYEXT_RAGEXTRACT_001 -->|implements| f_src_consilium_rag_py_118_170
+  f_tests_test_rag_py_5["tests/test_rag.py:5"]
+  CPYEXT_RAGEXTRACT_001 -->|tested-by| f_tests_test_rag_py_5
+  CPYEXT_RAGSTORE_001["RAG storage root, run persistence and tenancy<br><small>CPYEXT-RAGSTORE-001</small>"]
+  f_src_consilium_rag_py_38_271["src/consilium/rag.py:38-271"]
+  CPYEXT_RAGSTORE_001 -->|implements| f_src_consilium_rag_py_38_271
+  f_tests_test_rag_py_4["tests/test_rag.py:4"]
+  CPYEXT_RAGSTORE_001 -->|tested-by| f_tests_test_rag_py_4
   CPYMOD_DIA_001["Dialectic deliberation mode — Sequential + Skeptic challenger<br><small>CPYMOD-DIA-001</small>"]
   f_src_consilium_modes_dialectic_py_1["src/consilium/modes/dialectic.py:1"]
   CPYMOD_DIA_001 -->|implements| f_src_consilium_modes_dialectic_py_1
@@ -168,8 +198,8 @@ _Area-level coupling: one box per area (N caps), arrow A->B = some capability in
 
 ```mermaid
 graph LR
-  a_CPYBUS["CPYBUS<br><small>7 caps</small>"]
-  a_CPYEXT["CPYEXT<br><small>4 caps</small>"]
+  a_CPYBUS["CPYBUS<br><small>9 caps</small>"]
+  a_CPYEXT["CPYEXT<br><small>6 caps</small>"]
   a_CPYMOD["CPYMOD<br><small>3 caps</small>"]
   a_CPYSRV["CPYSRV<br><small>3 caps</small>"]
   a_CPYBUS --> a_CPYEXT

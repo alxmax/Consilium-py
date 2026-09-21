@@ -1,22 +1,19 @@
 {
-  "engine_version": "2026-06-19.1",
+  "engine_version": "2026-09-21.1",
   "repo": "alxmax/Consilium-py",
   "nodes": [
     {
       "id": "CPYBUS-AGG-001",
       "layer": "bus",
+      "level": null,
       "status": "confirmed",
       "area": "CPYBUS",
-      "title": "Sequential aggregation — veto cascade, voice extraction, Report assembly",
+      "title": "Sequential aggregation — veto cascade and verdict mapping",
       "intent": "",
       "contract": [
-        "`aggregate_sequential(cons_text, gen_text, ctrl_text, _inp)` shall parse each text argument as JSON (via `extract_json`) and run the veto cascade in this fixed priority order: 1. `glossary_fail` from Control → `BLOCK` 2. `irreversibility_flag` in any Conservator score → `BLOCK` 3. Generator `abstain.triggered` with `abstain.reason == \"not_a_proposal\"` → `BLOCK` (the input is not a code-change or decision proposal — nothing to deliberate). This is distinct from the two *soft* abstain reasons (`contradiction`, `goal_undefined`), which do not short-circuit and instead discount `confidence_methodology` on the `AGGREGATE` path. The third Generator abstain, `no_data`, is NOT soft — it short-circuits to `STOP` (step 6). 4. Three or more simultaneous triggers (substantial disagreement, scale_down/scale_up, soft generator abstain) → `ESCALATE` (reason `multiple_triggers`) 5. Substantial disagreement in Control → `REWORK` → mapped to `MODIFY` 6. Generator `abstain.reason == \"no_data\"` → `NO_DATA` → mapped to `STOP` at confidence `0.1` (a prediction with no evidence to weigh). Sits ABOVE `scale_down`, so such input never becomes a `GO`. 7. `scale_down` meta-recommendation → `ADAPT_SHORT` (reason `scale_down`) → mapped to `GO`. `deliberate()` then replaces the placeholder recommendation with a generated short response (see CPYBUS-API-001). 8. `scale_up` meta-recommendation → `ADAPT_EXTENDED` (reason `scale_up`) → mapped to `MODIFY` 9. Default → `AGGREGATE` (normal scoring)",
+        "`aggregate_sequential(cons_text, gen_text, ctrl_text, _inp)` shall parse each text argument as JSON (via `extract_json`) and run the veto cascade in this fixed priority order: 1. `glossary_fail` from Control → `BLOCK` 2. `irreversibility_flag` in any Conservator score → `BLOCK` 3. Generator `abstain.triggered` with `abstain.reason == \"not_a_proposal\"` → `BLOCK` (the input is not a code-change or decision proposal — nothing to deliberate). This is distinct from the two *soft* abstain reasons (`contradiction`, `goal_undefined`), which do not short-circuit and instead discount `confidence_methodology` on the `AGGREGATE` path. The third Generator abstain, `no_data`, is NOT soft — it short-circuits to `STOP` (step 6). 4. Three or more simultaneous triggers (substantial disagreement, scale_down/scale_up, soft generator abstain) → `ESCALATE` (reason `multiple_triggers`) 5. Substantial disagreement in Control → `REWORK` → mapped to `MODIFY` 6. Generator `abstain.reason == \"no_data\"` → `NO_DATA` → mapped to `STOP` at confidence `0.1` (a prediction with no evidence to weigh). Sits ABOVE `scale_down`, so such input never becomes a `GO`. 7. `scale_down` meta-recommendation → `ADAPT_SHORT` (reason `scale_down`) → mapped to `GO`. `deliberate()` then replaces the placeholder recommendation with a generated short response (see CPYBUS-APIANSWER-001). 8. `scale_up` meta-recommendation → `ADAPT_EXTENDED` (reason `scale_up`) → mapped to `MODIFY` 9. Default → `AGGREGATE` (normal scoring)",
         "In the `AGGREGATE` path, `confidence` shall equal `confidence_methodology` (0.0–1.0). A `confidence_methodology ≥ 0.7` maps to verdict `GO`; `≥ 0.4` to `MODIFY`; below to `STOP`.",
-        "Non-`AGGREGATE` results map as: `BLOCK`→`BLOCK`, `REWORK`→`MODIFY`, `ESCALATE`→`ESCALATE`, `ADAPT_SHORT`→`GO`, `ADAPT_EXTENDED`→`MODIFY`, `NO_DATA`→`STOP`. `REWORK` is not an exposed verdict in `Report`; it maps to `MODIFY` so callers receive a consistent surface. The `recommendation` field carries the rework context. Bypass verdicts (BLOCK, REWORK, ESCALATE, NO_DATA) carry categorical confidence values (e.g. `0.1` for BLOCK and NO_DATA); no scoring floor is applied to them.",
-        "A voice output that is not its own envelope shall short-circuit to `BLOCK` with reason `voice_unparseable`, and the failing voice names shall be surfaced on `Report.voices_failed` (empty on every other outcome). Membership is decided by `looks_like_envelope` (CPYBUS-VOI-001), not by truthiness: `extract_json` can recover a nested FRAGMENT from a truncated reply, and such a fragment is truthy, so a `not out` test lets it through and the cascade proceeds with `candidates=[]` / `preferred=None` — a silently wrong-shaped deliberation instead of a block. `call_voice` retries on the same predicate; this check is the backstop for retries exhausted.",
-        "The returned `Report` shall contain one `VoiceOutput` per voice (conservator, generator, control) with `vote`, `score`, `reasoning`, and `concerns` fields populated from the parsed JSON.",
-        "When the aggregation result names a chosen candidate (`chosen`), the `Report` shall also surface that candidate's \"how to implement\" detail so a `GO`/`MODIFY` verdict carries actionable guidance, not just a verdict line. The aggregator looks up the Generator candidate whose `id` equals the chosen id — scanning the Generator's `options`, falling back to the legacy `candidates` key — and copies its `summary` → `chosen_summary`, its `sketch` (or, for legacy/fixture outputs, `description`) → `chosen_sketch`, and its `rationale` → `chosen_rationale`. When no candidate is chosen, or none matches the chosen id, all three are `None`.",
-        "The `Report.reason` field shall carry the machine-readable bypass reason from the aggregation result — one of `voice_unparseable`, `glossary_fail`, `irreversibility_no_consent`, `not_a_proposal`, `multiple_triggers`, `substantial_disagreement`, `no_data`, `scale_down`, or `scale_up` — or `None` on a normal `AGGREGATE`-path verdict. This lets callers (e.g. `deliberate()`'s ANSWER and short-response conversions) branch on the cause without parsing the human-facing `recommendation` text. **Every** short-circuit shall set one: several bypasses share a verdict (`ADAPT_EXTENDED` and `REWORK` both surface as `MODIFY` at confidence `0.1`), so a `None` reason leaves a caller unable to tell them apart except by matching the English `action` prose."
+        "Non-`AGGREGATE` results map as: `BLOCK`→`BLOCK`, `REWORK`→`MODIFY`, `ESCALATE`→`ESCALATE`, `ADAPT_SHORT`→`GO`, `ADAPT_EXTENDED`→`MODIFY`, `NO_DATA`→`STOP`. `REWORK` is not an exposed verdict in `Report`; it maps to `MODIFY` so callers receive a consistent surface. The `recommendation` field carries the rework context. Bypass verdicts (BLOCK, REWORK, ESCALATE, NO_DATA) carry categorical confidence values (e.g. `0.1` for BLOCK and NO_DATA); no scoring floor is applied to them."
       ],
       "verify": [],
       "notes": [],
@@ -28,20 +25,20 @@
         "Given clean voice outputs with no triggers, when `aggregate_sequential` is called, then result is `AGGREGATE` and verdict is `GO` when `confidence_methodology ≥ 0.7`.",
         "Given Control output with `glossary_fail: true`, when `aggregate_sequential` is called, then verdict is `BLOCK`.",
         "Given Generator output with `abstain.reason == \"not_a_proposal\"`, when `aggregate_sequential` is called, then verdict is `BLOCK`, confidence is `0.1`, and the recommendation states it is not a deliberation input (tested-by `tests/test_sequential.py::TestRunSequential::test_not_a_proposal_blocks`). A soft abstain reason (`contradiction`, `goal_undefined`) does not short-circuit; `no_data` does (next AC).",
-        "Given Generator `abstain.reason == \"no_data\"` (a prediction with no evidence), when `aggregate_sequential` is called, then verdict is `STOP`, confidence is `0.1`, and `Report.reason == \"no_data\"` — and this holds even when a Conservator score recommends `scale_down`, because the `no_data` gate sits above `scale_down` (tested-by `tests/test_sequential.py::TestRunSequential::test_no_data_stops_low_confidence` and `test_no_data_beats_scale_down`).",
-        "Given a Generator output whose chosen candidate carries `summary`, `sketch`, and `rationale`, when `aggregate_sequential` is called, then `Report.chosen_summary`, `chosen_sketch`, and `chosen_rationale` carry that candidate's detail (tested-by `tests/test_sequential.py::TestRunSequential::test_chosen_sketch_surfaced`).",
-        "Given the `not_a_proposal` short-circuit, when `aggregate_sequential` is called, then `Report.reason == \"not_a_proposal\"` and `Report.chosen_sketch` is `None` — a non-proposal BLOCK has no chosen approach to sketch (tested-by `tests/test_sequential.py::TestRunSequential::test_not_a_proposal_sets_machine_reason` and `test_chosen_sketch_absent_on_block`).",
-        "Given any short-circuit of the veto cascade, when `aggregate_sequential` is called, then `Report.reason` is non-null and equals that branch's documented reason string — checked across all nine bypasses (tested-by `tests/test_sequential.py::TestRunSequential::test_every_bypass_sets_machine_reason` and `test_scale_up_sets_machine_reason`).",
-        "Given a Generator reply truncated into a nested fragment, when `aggregate_sequential` is called, then verdict is `BLOCK`, `Report.reason == \"voice_unparseable\"`, and `Report.voices_failed == [\"generator\"]`; on a healthy run `voices_failed` is empty and an abstain-only Generator with an empty `candidates` list is not mistaken for truncation (tested-by `tests/test_sequential.py::TestRunSequential::test_truncated_voice_blocks_instead_of_degrading_silently`, `test_block_names_which_voice_failed`, `test_voices_failed_is_empty_on_a_healthy_run`, `test_empty_candidate_list_is_not_mistaken_for_truncation`)."
+        "Given Generator `abstain.reason == \"no_data\"` (a prediction with no evidence), when `aggregate_sequential` is called, then verdict is `STOP`, confidence is `0.1`, and `Report.reason == \"no_data\"` — and this holds even when a Conservator score recommends `scale_down`, because the `no_data` gate sits above `scale_down` (tested-by `tests/test_sequential.py::TestRunSequential::test_no_data_stops_low_confidence` and `test_no_data_beats_scale_down`)."
       ],
-      "accept": "- Given Conservator output with `irreversibility_flag: true`, when `aggregate_sequential` is called, then verdict is `BLOCK` and confidence is `0.1`.\n- Given clean voice outputs with no triggers, when `aggregate_sequential` is called, then result is `AGGREGATE` and verdict is `GO` when `confidence_methodology ≥ 0.7`.\n- Given Control output with `glossary_fail: true`, when `aggregate_sequential` is called, then verdict is `BLOCK`.\n- Given Generator output with `abstain.reason == \"not_a_proposal\"`, when `aggregate_sequential` is called, then verdict is `BLOCK`, confidence is `0.1`, and the recommendation states it is not a deliberation input (tested-by `tests/test_sequential.py::TestRunSequential::test_not_a_proposal_blocks`). A soft abstain reason (`contradiction`, `goal_undefined`) does not short-circuit; `no_data` does (next AC).\n- Given Generator `abstain.reason == \"no_data\"` (a prediction with no evidence), when `aggregate_sequential` is called, then verdict is `STOP`, confidence is `0.1`, and `Report.reason == \"no_data\"` — and this holds even when a Conservator score recommends `scale_down`, because the `no_data` gate sits above `scale_down` (tested-by `tests/test_sequential.py::TestRunSequential::test_no_data_stops_low_confidence` and `test_no_data_beats_scale_down`).\n- Given a Generator output whose chosen candidate carries `summary`, `sketch`, and `rationale`, when `aggregate_sequential` is called, then `Report.chosen_summary`, `chosen_sketch`, and `chosen_rationale` carry that candidate's detail (tested-by `tests/test_sequential.py::TestRunSequential::test_chosen_sketch_surfaced`).\n- Given the `not_a_proposal` short-circuit, when `aggregate_sequential` is called, then `Report.reason == \"not_a_proposal\"` and `Report.chosen_sketch` is `None` — a non-proposal BLOCK has no chosen approach to sketch (tested-by `tests/test_sequential.py::TestRunSequential::test_not_a_proposal_sets_machine_reason` and `test_chosen_sketch_absent_on_block`).\n\n- Given any short-circuit of the veto cascade, when `aggregate_sequential` is called, then `Report.reason` is non-null and equals that branch's documented reason string — checked across all nine bypasses (tested-by `tests/test_sequential.py::TestRunSequential::test_every_bypass_sets_machine_reason` and `test_scale_up_sets_machine_reason`).\n\n- Given a Generator reply truncated into a nested fragment, when `aggregate_sequential` is called, then verdict is `BLOCK`, `Report.reason == \"voice_unparseable\"`, and `Report.voices_failed == [\"generator\"]`; on a healthy run `voices_failed` is empty and an abstain-only Generator with an empty `candidates` list is not mistaken for truncation (tested-by `tests/test_sequential.py::TestRunSequential::test_truncated_voice_blocks_instead_of_degrading_silently`, `test_block_names_which_voice_failed`, `test_voices_failed_is_empty_on_a_healthy_run`, `test_empty_candidate_list_is_not_mistaken_for_truncation`).",
+      "accept": "- Given Conservator output with `irreversibility_flag: true`, when `aggregate_sequential` is called, then verdict is `BLOCK` and confidence is `0.1`.\n- Given clean voice outputs with no triggers, when `aggregate_sequential` is called, then result is `AGGREGATE` and verdict is `GO` when `confidence_methodology ≥ 0.7`.\n- Given Control output with `glossary_fail: true`, when `aggregate_sequential` is called, then verdict is `BLOCK`.\n- Given Generator output with `abstain.reason == \"not_a_proposal\"`, when `aggregate_sequential` is called, then verdict is `BLOCK`, confidence is `0.1`, and the recommendation states it is not a deliberation input (tested-by `tests/test_sequential.py::TestRunSequential::test_not_a_proposal_blocks`). A soft abstain reason (`contradiction`, `goal_undefined`) does not short-circuit; `no_data` does (next AC).\n- Given Generator `abstain.reason == \"no_data\"` (a prediction with no evidence), when `aggregate_sequential` is called, then verdict is `STOP`, confidence is `0.1`, and `Report.reason == \"no_data\"` — and this holds even when a Conservator score recommends `scale_down`, because the `no_data` gate sits above `scale_down` (tested-by `tests/test_sequential.py::TestRunSequential::test_no_data_stops_low_confidence` and `test_no_data_beats_scale_down`).",
       "input": "",
       "output": "",
       "desc": "",
       "deps": [
         "CPYBUS-VOI-001"
       ],
+      "depends_on": [
+        "CPYBUS-VOI-001"
+      ],
       "used_by": [
+        "CPYBUS-AGGREPORT-001",
         "CPYEXT-LG-001",
         "CPYMOD-SEQ-001",
         "CPYMOD-TRI-001"
@@ -64,8 +61,68 @@
       "risks": []
     },
     {
+      "id": "CPYBUS-AGGREPORT-001",
+      "layer": "bus",
+      "level": null,
+      "status": "confirmed",
+      "area": "CPYBUS",
+      "title": "Sequential aggregation — Report assembly",
+      "intent": "",
+      "contract": [
+        "A voice output that is not its own envelope shall short-circuit to `BLOCK` with reason `voice_unparseable`, and the failing voice names shall be surfaced on `Report.voices_failed` (empty on every other outcome). Membership is decided by `looks_like_envelope` (CPYBUS-VOI-001), not by truthiness: `extract_json` can recover a nested FRAGMENT from a truncated reply, and such a fragment is truthy, so a `not out` test lets it through and the cascade proceeds with `candidates=[]` / `preferred=None` — a silently wrong-shaped deliberation instead of a block. `call_voice` retries on the same predicate; this check is the backstop for retries exhausted.",
+        "The returned `Report` shall contain one `VoiceOutput` per voice (conservator, generator, control) with `vote`, `score`, `reasoning`, and `concerns` fields populated from the parsed JSON.",
+        "When the aggregation result names a chosen candidate (`chosen`), the `Report` shall also surface that candidate's \"how to implement\" detail so a `GO`/`MODIFY` verdict carries actionable guidance, not just a verdict line. The aggregator looks up the Generator candidate whose `id` equals the chosen id — scanning the Generator's `options`, falling back to the legacy `candidates` key — and copies its `summary` → `chosen_summary`, its `sketch` (or, for legacy/fixture outputs, `description`) → `chosen_sketch`, and its `rationale` → `chosen_rationale`. When no candidate is chosen, or none matches the chosen id, all three are `None`.",
+        "The `Report.reason` field shall carry the machine-readable bypass reason from the aggregation result — one of `voice_unparseable`, `glossary_fail`, `irreversibility_no_consent`, `not_a_proposal`, `multiple_triggers`, `substantial_disagreement`, `no_data`, `scale_down`, or `scale_up` — or `None` on a normal `AGGREGATE`-path verdict. This lets callers (e.g. `deliberate()`'s ANSWER and short-response conversions) branch on the cause without parsing the human-facing `recommendation` text. **Every** short-circuit shall set one: several bypasses share a verdict (`ADAPT_EXTENDED` and `REWORK` both surface as `MODIFY` at confidence `0.1`), so a `None` reason leaves a caller unable to tell them apart except by matching the English `action` prose."
+      ],
+      "verify": [],
+      "notes": [],
+      "current_impl": [
+        "`src/consilium/aggregator.py`"
+      ],
+      "acc": [
+        "Given a Generator output whose chosen candidate carries `summary`, `sketch`, and `rationale`, when `aggregate_sequential` is called, then `Report.chosen_summary`, `chosen_sketch`, and `chosen_rationale` carry that candidate's detail (tested-by `tests/test_sequential.py::TestRunSequential::test_chosen_sketch_surfaced`).",
+        "Given the `not_a_proposal` short-circuit, when `aggregate_sequential` is called, then `Report.reason == \"not_a_proposal\"` and `Report.chosen_sketch` is `None` — a non-proposal BLOCK has no chosen approach to sketch (tested-by `tests/test_sequential.py::TestRunSequential::test_not_a_proposal_sets_machine_reason` and `test_chosen_sketch_absent_on_block`).",
+        "Given any short-circuit of the veto cascade, when `aggregate_sequential` is called, then `Report.reason` is non-null and equals that branch's documented reason string — checked across all nine bypasses (tested-by `tests/test_sequential.py::TestRunSequential::test_every_bypass_sets_machine_reason` and `test_scale_up_sets_machine_reason`).",
+        "Given a Generator reply truncated into a nested fragment, when `aggregate_sequential` is called, then verdict is `BLOCK`, `Report.reason == \"voice_unparseable\"`, and `Report.voices_failed == [\"generator\"]`; on a healthy run `voices_failed` is empty and an abstain-only Generator with an empty `candidates` list is not mistaken for truncation (tested-by `tests/test_sequential.py::TestRunSequential::test_truncated_voice_blocks_instead_of_degrading_silently`, `test_block_names_which_voice_failed`, `test_voices_failed_is_empty_on_a_healthy_run`, `test_empty_candidate_list_is_not_mistaken_for_truncation`)."
+      ],
+      "accept": "- Given a Generator output whose chosen candidate carries `summary`, `sketch`, and `rationale`, when `aggregate_sequential` is called, then `Report.chosen_summary`, `chosen_sketch`, and `chosen_rationale` carry that candidate's detail (tested-by `tests/test_sequential.py::TestRunSequential::test_chosen_sketch_surfaced`).\n- Given the `not_a_proposal` short-circuit, when `aggregate_sequential` is called, then `Report.reason == \"not_a_proposal\"` and `Report.chosen_sketch` is `None` — a non-proposal BLOCK has no chosen approach to sketch (tested-by `tests/test_sequential.py::TestRunSequential::test_not_a_proposal_sets_machine_reason` and `test_chosen_sketch_absent_on_block`).\n\n- Given any short-circuit of the veto cascade, when `aggregate_sequential` is called, then `Report.reason` is non-null and equals that branch's documented reason string — checked across all nine bypasses (tested-by `tests/test_sequential.py::TestRunSequential::test_every_bypass_sets_machine_reason` and `test_scale_up_sets_machine_reason`).\n\n- Given a Generator reply truncated into a nested fragment, when `aggregate_sequential` is called, then verdict is `BLOCK`, `Report.reason == \"voice_unparseable\"`, and `Report.voices_failed == [\"generator\"]`; on a healthy run `voices_failed` is empty and an abstain-only Generator with an empty `candidates` list is not mistaken for truncation (tested-by `tests/test_sequential.py::TestRunSequential::test_truncated_voice_blocks_instead_of_degrading_silently`, `test_block_names_which_voice_failed`, `test_voices_failed_is_empty_on_a_healthy_run`, `test_empty_candidate_list_is_not_mistaken_for_truncation`).",
+      "input": "",
+      "output": "",
+      "desc": "",
+      "deps": [
+        "CPYBUS-AGG-001",
+        "CPYBUS-VOI-001"
+      ],
+      "depends_on": [
+        "CPYBUS-AGG-001",
+        "CPYBUS-VOI-001"
+      ],
+      "used_by": [],
+      "satisfies": [],
+      "satisfied_by": [],
+      "members": [
+        {
+          "role": "implements",
+          "loc": "src/consilium/aggregator.py:38"
+        },
+        {
+          "role": "implements",
+          "loc": "src/consilium/aggregator.py:236"
+        },
+        {
+          "role": "tested-by",
+          "loc": "tests/test_sequential.py:4"
+        }
+      ],
+      "test_exempt": null,
+      "milestone": null,
+      "priority": "",
+      "risks": []
+    },
+    {
       "id": "CPYBUS-API-001",
       "layer": "bus",
+      "level": null,
       "status": "confirmed",
       "area": "CPYBUS",
       "title": "Public Python API — deliberate()",
@@ -78,11 +135,7 @@
         "`model` (after env var resolution) is passed through to every API call.",
         "`skeptic_can_override` is forwarded only to `run_dialectic`; it is silently ignored for other modes.",
         "`rag=True` enables RAG context injection (requires `consilium-py[rag]` extra; see CPYEXT-RAG-001).",
-        "The return type is always `consilium.models.Report`.",
-        "When the selected mode returns a report with `reason == \"not_a_proposal\"` (a non-deliberation input — greeting, chit-chat, or empty), `deliberate()` shall replace it with a plain answer rather than return the `BLOCK`: a `Report` with `verdict = \"ANSWER\"`, the conversational reply from a single `voices.plain_answer()` call in `recommendation`, empty `voices`, and `confidence = 0.0`. Such answers are not persisted to RAG. (Problems and decision-questions are reframed into candidates by the Generator and never carry this reason; dataless predictions use the `no_data` gate, a low-confidence STOP.)",
-        "When the selected mode returns a report with `reason == \"scale_down\"` (a trivial request the deliberation compressed to a short answer), `deliberate()` shall replace the placeholder recommendation with an actual reply from a single `voices.short_response()` call, keeping the verdict — producing the 2-sentence response the compressed path promises instead of leaking the instruction.",
-        "Both bypass calls (`plain_answer`, `short_response`) shall receive the assembled `context` — including any RAG block — via their `context` argument. These paths discard the pipeline result, so without this the reply is produced with no sight of the retrieved material and is silently ungrounded while the surface implies otherwise.",
-        "When `rag=True`, `deliberate()` shall populate `Report.sources` with the retrieved doc-chunk ids returned by `build_rag_bundle`, on both the ANSWER path and the normal aggregated path. With `rag=False` it shall be empty. Grounding that the caller cannot inspect is indistinguishable from no grounding."
+        "The return type is always `consilium.models.Report`."
       ],
       "verify": [],
       "notes": [],
@@ -94,14 +147,9 @@
         "Given `mode=\"trias\"`, when `deliberate` is called, then `report.mode == \"trias\"`.",
         "Given `mode=\"langgraph\"`, when `deliberate` is called, then `report.mode == \"langgraph\"`.",
         "Given `mode=\"unknown\"`, when `deliberate` is called, then `ValueError` is raised.",
-        "Given `CONSILIUM_MODEL=claude-haiku-4-5` in env, when `deliberate(\"test\", model=\"claude-sonnet-4-6\")` is called, then all voice calls use `claude-haiku-4-5`.",
-        "Given the selected mode returns a report with `reason == \"not_a_proposal\"`, when `deliberate` is called, then the returned report has `verdict == \"ANSWER\"` with `recommendation` supplied by `plain_answer()` (tested-by `tests/test_api.py::TestNonDeliberationAnswer`).",
-        "Given the selected mode returns a report with `reason == \"scale_down\"`, when `deliberate` is called, then `report.recommendation` is the output of `short_response()` and the verdict is unchanged (tested-by `tests/test_api.py::TestNonDeliberationAnswer::test_scale_down_gets_real_short_response`).",
-        "Given `rag=True` and a RAG block naming a fact, when a `not_a_proposal` or `scale_down` report is returned, then that block reaches `plain_answer` / `short_response` via `context` (tested-by `tests/test_api.py::TestBypassAnswersAreGrounded::test_not_a_proposal_answer_receives_rag_context` and `test_scale_down_response_receives_rag_context`).",
-        "Given `rag=False`, when `deliberate` is called, then the bypass call receives `context == \"\"` (tested-by `tests/test_api.py::TestBypassAnswersAreGrounded::test_answer_without_rag_passes_empty_context`).",
-        "Given `rag=True` and retrieval returning `[\"spec.md#0\"]`, when `deliberate` is called, then `report.sources == [\"spec.md#0\"]` on both the ANSWER and aggregated paths, and is empty when `rag=False` (tested-by `tests/test_api.py::TestBypassAnswersAreGrounded::test_answer_reports_the_sources_it_was_grounded_in`, `test_deliberated_verdict_reports_sources_too`, `test_sources_empty_when_rag_disabled`)."
+        "Given `CONSILIUM_MODEL=claude-haiku-4-5` in env, when `deliberate(\"test\", model=\"claude-sonnet-4-6\")` is called, then all voice calls use `claude-haiku-4-5`."
       ],
-      "accept": "- Given `mode=\"sequential\"`, when `deliberate` is called, then `report.mode == \"sequential\"`.\n- Given `mode=\"trias\"`, when `deliberate` is called, then `report.mode == \"trias\"`.\n- Given `mode=\"langgraph\"`, when `deliberate` is called, then `report.mode == \"langgraph\"`.\n- Given `mode=\"unknown\"`, when `deliberate` is called, then `ValueError` is raised.\n- Given `CONSILIUM_MODEL=claude-haiku-4-5` in env, when `deliberate(\"test\", model=\"claude-sonnet-4-6\")` is called, then all voice calls use `claude-haiku-4-5`.\n- Given the selected mode returns a report with `reason == \"not_a_proposal\"`, when `deliberate` is called, then the returned report has `verdict == \"ANSWER\"` with `recommendation` supplied by `plain_answer()` (tested-by `tests/test_api.py::TestNonDeliberationAnswer`).\n- Given the selected mode returns a report with `reason == \"scale_down\"`, when `deliberate` is called, then `report.recommendation` is the output of `short_response()` and the verdict is unchanged (tested-by `tests/test_api.py::TestNonDeliberationAnswer::test_scale_down_gets_real_short_response`).\n- Given `rag=True` and a RAG block naming a fact, when a `not_a_proposal` or `scale_down` report is returned, then that block reaches `plain_answer` / `short_response` via `context` (tested-by `tests/test_api.py::TestBypassAnswersAreGrounded::test_not_a_proposal_answer_receives_rag_context` and `test_scale_down_response_receives_rag_context`).\n- Given `rag=False`, when `deliberate` is called, then the bypass call receives `context == \"\"` (tested-by `tests/test_api.py::TestBypassAnswersAreGrounded::test_answer_without_rag_passes_empty_context`).\n- Given `rag=True` and retrieval returning `[\"spec.md#0\"]`, when `deliberate` is called, then `report.sources == [\"spec.md#0\"]` on both the ANSWER and aggregated paths, and is empty when `rag=False` (tested-by `tests/test_api.py::TestBypassAnswersAreGrounded::test_answer_reports_the_sources_it_was_grounded_in`, `test_deliberated_verdict_reports_sources_too`, `test_sources_empty_when_rag_disabled`).",
+      "accept": "- Given `mode=\"sequential\"`, when `deliberate` is called, then `report.mode == \"sequential\"`.\n- Given `mode=\"trias\"`, when `deliberate` is called, then `report.mode == \"trias\"`.\n- Given `mode=\"langgraph\"`, when `deliberate` is called, then `report.mode == \"langgraph\"`.\n- Given `mode=\"unknown\"`, when `deliberate` is called, then `ValueError` is raised.\n- Given `CONSILIUM_MODEL=claude-haiku-4-5` in env, when `deliberate(\"test\", model=\"claude-sonnet-4-6\")` is called, then all voice calls use `claude-haiku-4-5`.",
       "input": "",
       "output": "",
       "desc": "",
@@ -110,7 +158,13 @@
         "CPYMOD-DIA-001",
         "CPYMOD-TRI-001"
       ],
+      "depends_on": [
+        "CPYMOD-SEQ-001",
+        "CPYMOD-DIA-001",
+        "CPYMOD-TRI-001"
+      ],
       "used_by": [
+        "CPYBUS-APIANSWER-001",
         "CPYBUS-CLI-001",
         "CPYEXT-LG-001",
         "CPYEXT-LTL-001",
@@ -135,8 +189,65 @@
       "risks": []
     },
     {
+      "id": "CPYBUS-APIANSWER-001",
+      "layer": "bus",
+      "level": null,
+      "status": "confirmed",
+      "area": "CPYBUS",
+      "title": "Public Python API — non-deliberation answers and RAG grounding",
+      "intent": "",
+      "contract": [
+        "When the selected mode returns a report with `reason == \"not_a_proposal\"` (a non-deliberation input — greeting, chit-chat, or empty), `deliberate()` shall replace it with a plain answer rather than return the `BLOCK`: a `Report` with `verdict = \"ANSWER\"`, the conversational reply from a single `voices.plain_answer()` call in `recommendation`, empty `voices`, and `confidence = 0.0`. Such answers are not persisted to RAG. (Problems and decision-questions are reframed into candidates by the Generator and never carry this reason; dataless predictions use the `no_data` gate, a low-confidence STOP.)",
+        "When the selected mode returns a report with `reason == \"scale_down\"` (a trivial request the deliberation compressed to a short answer), `deliberate()` shall replace the placeholder recommendation with an actual reply from a single `voices.short_response()` call, keeping the verdict — producing the 2-sentence response the compressed path promises instead of leaking the instruction.",
+        "Both bypass calls (`plain_answer`, `short_response`) shall receive the assembled `context` — including any RAG block — via their `context` argument. These paths discard the pipeline result, so without this the reply is produced with no sight of the retrieved material and is silently ungrounded while the surface implies otherwise.",
+        "When `rag=True`, `deliberate()` shall populate `Report.sources` with the retrieved doc-chunk ids returned by `build_rag_bundle`, on both the ANSWER path and the normal aggregated path. With `rag=False` it shall be empty. Grounding that the caller cannot inspect is indistinguishable from no grounding."
+      ],
+      "verify": [],
+      "notes": [],
+      "current_impl": [
+        "`src/consilium/__init__.py`"
+      ],
+      "acc": [
+        "Given the selected mode returns a report with `reason == \"not_a_proposal\"`, when `deliberate` is called, then the returned report has `verdict == \"ANSWER\"` with `recommendation` supplied by `plain_answer()` (tested-by `tests/test_api.py::TestNonDeliberationAnswer`).",
+        "Given the selected mode returns a report with `reason == \"scale_down\"`, when `deliberate` is called, then `report.recommendation` is the output of `short_response()` and the verdict is unchanged (tested-by `tests/test_api.py::TestNonDeliberationAnswer::test_scale_down_gets_real_short_response`).",
+        "Given `rag=True` and a RAG block naming a fact, when a `not_a_proposal` or `scale_down` report is returned, then that block reaches `plain_answer` / `short_response` via `context` (tested-by `tests/test_api.py::TestBypassAnswersAreGrounded::test_not_a_proposal_answer_receives_rag_context` and `test_scale_down_response_receives_rag_context`).",
+        "Given `rag=False`, when `deliberate` is called, then the bypass call receives `context == \"\"` (tested-by `tests/test_api.py::TestBypassAnswersAreGrounded::test_answer_without_rag_passes_empty_context`).",
+        "Given `rag=True` and retrieval returning `[\"spec.md#0\"]`, when `deliberate` is called, then `report.sources == [\"spec.md#0\"]` on both the ANSWER and aggregated paths, and is empty when `rag=False` (tested-by `tests/test_api.py::TestBypassAnswersAreGrounded::test_answer_reports_the_sources_it_was_grounded_in`, `test_deliberated_verdict_reports_sources_too`, `test_sources_empty_when_rag_disabled`)."
+      ],
+      "accept": "- Given the selected mode returns a report with `reason == \"not_a_proposal\"`, when `deliberate` is called, then the returned report has `verdict == \"ANSWER\"` with `recommendation` supplied by `plain_answer()` (tested-by `tests/test_api.py::TestNonDeliberationAnswer`).\n- Given the selected mode returns a report with `reason == \"scale_down\"`, when `deliberate` is called, then `report.recommendation` is the output of `short_response()` and the verdict is unchanged (tested-by `tests/test_api.py::TestNonDeliberationAnswer::test_scale_down_gets_real_short_response`).\n- Given `rag=True` and a RAG block naming a fact, when a `not_a_proposal` or `scale_down` report is returned, then that block reaches `plain_answer` / `short_response` via `context` (tested-by `tests/test_api.py::TestBypassAnswersAreGrounded::test_not_a_proposal_answer_receives_rag_context` and `test_scale_down_response_receives_rag_context`).\n- Given `rag=False`, when `deliberate` is called, then the bypass call receives `context == \"\"` (tested-by `tests/test_api.py::TestBypassAnswersAreGrounded::test_answer_without_rag_passes_empty_context`).\n- Given `rag=True` and retrieval returning `[\"spec.md#0\"]`, when `deliberate` is called, then `report.sources == [\"spec.md#0\"]` on both the ANSWER and aggregated paths, and is empty when `rag=False` (tested-by `tests/test_api.py::TestBypassAnswersAreGrounded::test_answer_reports_the_sources_it_was_grounded_in`, `test_deliberated_verdict_reports_sources_too`, `test_sources_empty_when_rag_disabled`).",
+      "input": "",
+      "output": "",
+      "desc": "",
+      "deps": [
+        "CPYBUS-API-001",
+        "CPYBUS-VOI-001"
+      ],
+      "depends_on": [
+        "CPYBUS-API-001",
+        "CPYBUS-VOI-001"
+      ],
+      "used_by": [],
+      "satisfies": [],
+      "satisfied_by": [],
+      "members": [
+        {
+          "role": "implements",
+          "loc": "src/consilium/__init__.py:49"
+        },
+        {
+          "role": "tested-by",
+          "loc": "tests/test_api.py:3"
+        }
+      ],
+      "test_exempt": null,
+      "milestone": null,
+      "priority": "",
+      "risks": []
+    },
+    {
       "id": "CPYBUS-CHAT-001",
       "layer": "bus",
+      "level": null,
       "status": "confirmed",
       "area": "CPYBUS",
       "title": "Chat Q&A surface — retrieve-then-answer, deliberation opt-in",
@@ -172,6 +283,10 @@
         "CPYBUS-VOI-001",
         "CPYEXT-DOCRAG-001"
       ],
+      "depends_on": [
+        "CPYBUS-VOI-001",
+        "CPYEXT-DOCRAG-001"
+      ],
       "used_by": [],
       "satisfies": [],
       "satisfied_by": [],
@@ -197,6 +312,7 @@
     {
       "id": "CPYBUS-CLI-001",
       "layer": "bus",
+      "level": null,
       "status": "confirmed",
       "area": "CPYBUS",
       "title": "CLI interface — deliberate and check commands",
@@ -204,7 +320,7 @@
       "contract": [
         "`consilium deliberate \"<proposal>\"` shall call `deliberate()` with the given proposal and print verdict, confidence, mode, and recommendation in text format, or full JSON with `--output json`.",
         "For an actionable verdict (`GO` or `MODIFY`) whose `Report` carries a `chosen_sketch`, text output shall print a \"How to implement (`<chosen>`)\" block: the `chosen_summary` (when present), the `chosen_sketch`, and the `chosen_rationale` prefixed \"Why:\". A `STOP`/`BLOCK` verdict carries no chosen approach, so the block is suppressed.",
-        "When the report's verdict is `ANSWER` — a non-deliberation input (greeting / chit-chat) answered directly, see CPYBUS-API-001 — text output shall print only the reply (`recommendation`), with no verdict / confidence / mode header and no how-to-implement block.",
+        "When the report's verdict is `ANSWER` — a non-deliberation input (greeting / chit-chat) answered directly, see CPYBUS-APIANSWER-001 — text output shall print only the reply (`recommendation`), with no verdict / confidence / mode header and no how-to-implement block.",
         "`--context <path>` (repeatable) shall read each file and concatenate its content into the `context` argument. Multiple `-c` flags are supported.",
         "`--mode` shall accept `sequential` (default), `dialectic`, `trias`, and `langgraph`.",
         "`--model` shall default to `claude-sonnet-4-6` and also read the `CONSILIUM_MODEL` env var (Click `envvar=`), making `export CONSILIUM_MODEL=openai/gpt-4o` equivalent to `--model openai/gpt-4o`.",
@@ -237,6 +353,9 @@
       "deps": [
         "CPYBUS-API-001"
       ],
+      "depends_on": [
+        "CPYBUS-API-001"
+      ],
       "used_by": [
         "CPYEXT-LTL-001"
       ],
@@ -264,6 +383,7 @@
     {
       "id": "CPYBUS-EXPLAIN-001",
       "layer": "bus",
+      "level": null,
       "status": "confirmed",
       "area": "CPYBUS",
       "title": "Codebase explanation — explain_module and the explain CLI command",
@@ -297,6 +417,9 @@
       "deps": [
         "CPYBUS-VOI-001"
       ],
+      "depends_on": [
+        "CPYBUS-VOI-001"
+      ],
       "used_by": [],
       "satisfies": [],
       "satisfied_by": [],
@@ -322,6 +445,7 @@
     {
       "id": "CPYBUS-SKEPTIC-001",
       "layer": "bus",
+      "level": null,
       "status": "confirmed",
       "area": "CPYBUS",
       "title": "Shared Skeptic challenge",
@@ -353,6 +477,9 @@
       "deps": [
         "CPYBUS-VOI-001"
       ],
+      "depends_on": [
+        "CPYBUS-VOI-001"
+      ],
       "used_by": [
         "CPYMOD-DIA-001",
         "CPYMOD-TRI-001"
@@ -377,6 +504,7 @@
     {
       "id": "CPYBUS-VOI-001",
       "layer": "bus",
+      "level": null,
       "status": "confirmed",
       "area": "CPYBUS",
       "title": "Voice dispatch — prompt loading, API call, JSON extraction",
@@ -409,8 +537,11 @@
       "output": "",
       "desc": "",
       "deps": [],
+      "depends_on": [],
       "used_by": [
         "CPYBUS-AGG-001",
+        "CPYBUS-AGGREPORT-001",
+        "CPYBUS-APIANSWER-001",
         "CPYBUS-CHAT-001",
         "CPYBUS-EXPLAIN-001",
         "CPYBUS-SKEPTIC-001",
@@ -441,6 +572,7 @@
     {
       "id": "CPYEXT-DOCRAG-001",
       "layer": "feature",
+      "level": null,
       "status": "confirmed",
       "area": "CPYEXT",
       "title": "Doc-RAG — ingest reference documents for retrieval",
@@ -480,6 +612,9 @@
       "deps": [
         "CPYEXT-RAG-001"
       ],
+      "depends_on": [
+        "CPYEXT-RAG-001"
+      ],
       "used_by": [
         "CPYBUS-CHAT-001"
       ],
@@ -507,6 +642,7 @@
     {
       "id": "CPYEXT-LG-001",
       "layer": "feature",
+      "level": null,
       "status": "confirmed",
       "area": "CPYEXT",
       "title": "LangGraph orchestration mode",
@@ -543,6 +679,11 @@
         "CPYBUS-VOI-001",
         "CPYBUS-AGG-001"
       ],
+      "depends_on": [
+        "CPYBUS-API-001",
+        "CPYBUS-VOI-001",
+        "CPYBUS-AGG-001"
+      ],
       "used_by": [],
       "satisfies": [],
       "satisfied_by": [],
@@ -564,6 +705,7 @@
     {
       "id": "CPYEXT-LTL-001",
       "layer": "feature",
+      "level": null,
       "status": "confirmed",
       "area": "CPYEXT",
       "title": "Provider-agnostic voice dispatch via LiteLLM",
@@ -601,6 +743,11 @@
         "CPYBUS-API-001",
         "CPYBUS-CLI-001"
       ],
+      "depends_on": [
+        "CPYBUS-VOI-001",
+        "CPYBUS-API-001",
+        "CPYBUS-CLI-001"
+      ],
       "used_by": [],
       "satisfies": [],
       "satisfied_by": [],
@@ -619,7 +766,7 @@
         },
         {
           "role": "tested-by",
-          "loc": "tests/test_api.py:3"
+          "loc": "tests/test_api.py:4"
         },
         {
           "role": "tested-by",
@@ -634,12 +781,12 @@
     {
       "id": "CPYEXT-RAG-001",
       "layer": "feature",
+      "level": null,
       "status": "confirmed",
       "area": "CPYEXT",
       "title": "RAG context injection from past deliberation runs",
       "intent": "",
       "contract": [
-        "`save_run(run_id, inp, report)` shall persist `{id, timestamp, proposal, context, report}` to `~/.consilium/runs/<run_id>.json`. The proposal text must be inside the record (not only in the filename).",
         "`index(run_id, inp, report)` shall upsert the run into a ChromaDB collection `consilium_runs_v2` at `~/.consilium/chroma/`, using `metadata={\"kind\": \"run\", ...}` and `proposal + context` (not proposal alone) as the embedded document.",
         "The collection shall be created with `metadata={\"hnsw:space\": \"cosine\"}` — explicit, not ChromaDB's unstated default (L2/squared-L2).",
         "`retrieve(proposal, k=3, max_distance=0.55)` shall return at most `k` formatted snippets whose cosine distance to the query is ≤ `max_distance`, restricted to `kind=\"run\"` entries with `confidence >= 0.5` and `verdict not in (STOP, BLOCK)` — a design default (failed/low-confidence runs are not \"similar past guidance\"), not an empirically-validated quality claim. If the index is empty, print a user-visible message to stderr and return `[]`. If no run qualifies (all distances > threshold, or all excluded by the quality filter), return `[]`.",
@@ -647,15 +794,7 @@
         "`build_rag_context(proposal)` shall call `retrieve()` and `retrieve_docs()` (see CPYEXT-DOCRAG-001) and return `SIMILAR PAST DECISIONS:` / `RELEVANT DOCS:` blocks (each only if non-empty), joined by a blank line, or `\"\"` if both are empty.",
         "When `chromadb` is not installed, any call into the RAG module shall raise `ImportError` with a `pip install consilium-py[rag]` hint — not silently skip.",
         "The RAG context block, when non-empty, shall be prepended to `inp.context` before voices run, ahead of any user-supplied `--context` content.",
-        "The ChromaDB store is global (`~/.consilium/chroma/`). A per-project store (`.consilium/chroma/` in the repo) would be more isolated but requires project-root detection; global is simpler and sufficient for the current scope.",
         "`build_rag_bundle(proposal)` shall return `(context_block, doc_source_ids)` from a **single** retrieval pass, where each id is `\"<source>#<chunk_index>\"`. `build_rag_context(proposal)` shall return only its first element, preserving its existing signature. Past-run snippets shall NOT be cited: they are prior deliberations, not source documents.",
-        "The storage root shall be resolvable at call time via `runs_dir()` / `chroma_dir()`, which return `$CONSILIUM_HOME/runs` and `$CONSILIUM_HOME/chroma` when `CONSILIUM_HOME` is set and `~/.consilium/...` otherwise. Resolution must be per call, not at import: under a server the process home is the service account's, often ephemeral (containers) or shared, so the location has to be settable from outside the package.",
-        "**Tenancy — two modes.** `index()`, `ingest_path()`, `retrieve()`, `_doc_hits()`, `build_rag_bundle()` and `build_rag_context()` shall accept `tenant: str | None = None`. With `None` no tenant key is written and no tenant clause is applied (the shared single-operator corpus, and the original behaviour). With a tenant string, writes carry `metadata['tenant']` and reads add a `{'tenant': <id>}` clause, so a scoped query returns neither another tenant's records nor untagged ones — fail closed, so pre-tenancy data is never served to a tenant. `ingest_path` shall also scope its stale-chunk `delete` to the tenant, or re-ingesting a same-named file would purge another tenant's chunks.",
-        "The tenant shall be resolved server-side from the authenticated caller (`CONSILIUM_API_KEYS`), never from a request field — otherwise a caller selects their own scope.",
-        "**Document extractors.** `extract_text(path)` shall return the ingestable text for a supported suffix, `None` for an unsupported one, and raise `ImportError` with a `pip install 'consilium-py[docs]'` hint when the format is supported but its optional dependency is absent — a missing extractor must be loud, never a silently empty document. The registry `_EXTRACTORS` maps suffix → callable: `.pdf` (PyMuPDF), `.docx` (python-docx), `.html`/`.htm` (beautifulsoup4, `<script>`/`<style>` stripped), `.csv` (stdlib). Plain-text suffixes bypass the registry.",
-        "**CSV is summarised, not embedded.** `_extract_csv` shall emit the filename, column list, row count, and at most `_CSV_PREVIEW_ROWS` rows labelled as shape-only, and shall NOT index the remaining rows. Rationale: top-k cosine retrieval over table rows returns arbitrary rows from which a model computes confident wrong aggregates; a figure must come from a deterministic query, not from retrieval. `.sql` is out of scope for the same reason (a schema script is not data).",
-        "Images shall not be ingested: OCR requires an external `tesseract` binary and a silently empty extraction is worse than an explicit skip.",
-        "`_MAX_INGEST_FILE_BYTES` shall be 10 MB, not 1 MB — a single PDF routinely exceeds the old cap.",
         "Migration note: `consilium_runs` (the pre-cosine, default-distance collection) is superseded by `consilium_runs_v2`, not migrated automatically — mixing L2 and cosine vectors in one index would make distances meaningless. If the new collection is empty and the old one has data, `retrieve()`/`retrieve_docs()` print an upgrade-specific stderr hint (distinct from the generic empty-index message) pointing at `consilium index` to rebuild."
       ],
       "verify": [],
@@ -672,13 +811,9 @@
         "Given `chromadb` not installed, when `index()` or `retrieve()` is called, then `ImportError` is raised with the install hint.",
         "Given an empty index, when `retrieve()` is called, then a message is printed to stderr and `[]` is returned.",
         "Given the legacy `consilium_runs` collection has data and `consilium_runs_v2` is empty, when `retrieve()`/`retrieve_docs()` is called, then an upgrade-specific stderr hint naming both collections is printed.",
-        "Given a doc chunk from `README.md` at chunk index 2, when `build_rag_bundle()` is called, then the text contains `RELEVANT DOCS` and the ids are `[\"README.md#2\"]`; given an empty index, both halves are empty (tested-by `tests/test_rag.py::TestBuildRagBundle`).",
-        "Given `CONSILIUM_HOME` set to a temp dir, when `runs_dir()` / `chroma_dir()` are called, then they resolve beneath it, and `save_run()` writes there rather than under the user's home; unset, they resolve under `~/.consilium` (tested-by `tests/test_rag.py::TestStorageRootOverride`).",
-        "Given `tenant='acme'`, when `index()` / `ingest_path()` are called, then the written metadata carries `tenant='acme'`; with `tenant=None` no such key is written; and `retrieve()` / `retrieve_docs()` add a `{'tenant': ...}` clause only when scoped (tested-by `tests/test_rag.py::TestTenantScoping`).",
-        "Given an `.html`, `.docx`, `.pdf` or `.csv` file, when `extract_text()` is called, then it returns extracted text (HTML free of `<script>`/`<style>`, CSV a schema summary whose tail rows are absent); an unsupported suffix returns `None`; and a supported suffix with its dependency missing raises `ImportError` naming `consilium-py[docs]` (tested-by `tests/test_rag.py::TestDocumentExtractors`).",
-        "Given an HTML file, when `ingest_path()` runs, then the stored chunk contains the extracted text and NOT the raw markup — the discriminating assertion, since raw `read_text` would also contain the body substring (tested-by `tests/test_rag.py::TestDocumentExtractors::test_ingest_routes_html_through_the_extractor`)."
+        "Given a doc chunk from `README.md` at chunk index 2, when `build_rag_bundle()` is called, then the text contains `RELEVANT DOCS` and the ids are `[\"README.md#2\"]`; given an empty index, both halves are empty (tested-by `tests/test_rag.py::TestBuildRagBundle`)."
       ],
-      "accept": "- Given a seeded index with one run (verdict GO, proposal \"Add health check\"), when `retrieve(\"Add health endpoint\")` is called, then the returned snippet contains \"GO\" and the proposal text.\n- Given `max_distance=0.55` and a query with no similar run, when `retrieve()` is called, then it returns `[]` without raising.\n- Given a run with `verdict=\"STOP\"` or `confidence<0.5`, when `retrieve()` is called with a query that would otherwise match it, then it is excluded from the results.\n- Given `chromadb` not installed, when `index()` or `retrieve()` is called, then `ImportError` is raised with the install hint.\n- Given an empty index, when `retrieve()` is called, then a message is printed to stderr and `[]` is returned.\n- Given the legacy `consilium_runs` collection has data and `consilium_runs_v2` is empty, when `retrieve()`/`retrieve_docs()` is called, then an upgrade-specific stderr hint naming both collections is printed.\n- Given a doc chunk from `README.md` at chunk index 2, when `build_rag_bundle()` is called, then the text contains `RELEVANT DOCS` and the ids are `[\"README.md#2\"]`; given an empty index, both halves are empty (tested-by `tests/test_rag.py::TestBuildRagBundle`).\n- Given `CONSILIUM_HOME` set to a temp dir, when `runs_dir()` / `chroma_dir()` are called, then they resolve beneath it, and `save_run()` writes there rather than under the user's home; unset, they resolve under `~/.consilium` (tested-by `tests/test_rag.py::TestStorageRootOverride`).\n- Given `tenant='acme'`, when `index()` / `ingest_path()` are called, then the written metadata carries `tenant='acme'`; with `tenant=None` no such key is written; and `retrieve()` / `retrieve_docs()` add a `{'tenant': ...}` clause only when scoped (tested-by `tests/test_rag.py::TestTenantScoping`).\n- Given an `.html`, `.docx`, `.pdf` or `.csv` file, when `extract_text()` is called, then it returns extracted text (HTML free of `<script>`/`<style>`, CSV a schema summary whose tail rows are absent); an unsupported suffix returns `None`; and a supported suffix with its dependency missing raises `ImportError` naming `consilium-py[docs]` (tested-by `tests/test_rag.py::TestDocumentExtractors`).\n- Given an HTML file, when `ingest_path()` runs, then the stored chunk contains the extracted text and NOT the raw markup — the discriminating assertion, since raw `read_text` would also contain the body substring (tested-by `tests/test_rag.py::TestDocumentExtractors::test_ingest_routes_html_through_the_extractor`).",
+      "accept": "- Given a seeded index with one run (verdict GO, proposal \"Add health check\"), when `retrieve(\"Add health endpoint\")` is called, then the returned snippet contains \"GO\" and the proposal text.\n- Given `max_distance=0.55` and a query with no similar run, when `retrieve()` is called, then it returns `[]` without raising.\n- Given a run with `verdict=\"STOP\"` or `confidence<0.5`, when `retrieve()` is called with a query that would otherwise match it, then it is excluded from the results.\n- Given `chromadb` not installed, when `index()` or `retrieve()` is called, then `ImportError` is raised with the install hint.\n- Given an empty index, when `retrieve()` is called, then a message is printed to stderr and `[]` is returned.\n- Given the legacy `consilium_runs` collection has data and `consilium_runs_v2` is empty, when `retrieve()`/`retrieve_docs()` is called, then an upgrade-specific stderr hint naming both collections is printed.\n- Given a doc chunk from `README.md` at chunk index 2, when `build_rag_bundle()` is called, then the text contains `RELEVANT DOCS` and the ids are `[\"README.md#2\"]`; given an empty index, both halves are empty (tested-by `tests/test_rag.py::TestBuildRagBundle`).",
       "input": "",
       "output": "",
       "desc": "",
@@ -686,8 +821,14 @@
         "CPYBUS-API-001",
         "CPYBUS-VOI-001"
       ],
+      "depends_on": [
+        "CPYBUS-API-001",
+        "CPYBUS-VOI-001"
+      ],
       "used_by": [
-        "CPYEXT-DOCRAG-001"
+        "CPYEXT-DOCRAG-001",
+        "CPYEXT-RAGEXTRACT-001",
+        "CPYEXT-RAGSTORE-001"
       ],
       "satisfies": [],
       "satisfied_by": [],
@@ -707,8 +848,124 @@
       "risks": []
     },
     {
+      "id": "CPYEXT-RAGEXTRACT-001",
+      "layer": "feature",
+      "level": null,
+      "status": "confirmed",
+      "area": "CPYEXT",
+      "title": "RAG document extractors for non-plain-text formats",
+      "intent": "",
+      "contract": [
+        "**Document extractors.** `extract_text(path)` shall return the ingestable text for a supported suffix, `None` for an unsupported one, and raise `ImportError` with a `pip install 'consilium-py[docs]'` hint when the format is supported but its optional dependency is absent — a missing extractor must be loud, never a silently empty document. The registry `_EXTRACTORS` maps suffix → callable: `.pdf` (PyMuPDF), `.docx` (python-docx), `.html`/`.htm` (beautifulsoup4, `<script>`/`<style>` stripped), `.csv` (stdlib). Plain-text suffixes bypass the registry.",
+        "**CSV is summarised, not embedded.** `_extract_csv` shall emit the filename, column list, row count, and at most `_CSV_PREVIEW_ROWS` rows labelled as shape-only, and shall NOT index the remaining rows. Rationale: top-k cosine retrieval over table rows returns arbitrary rows from which a model computes confident wrong aggregates; a figure must come from a deterministic query, not from retrieval. `.sql` is out of scope for the same reason (a schema script is not data).",
+        "Images shall not be ingested: OCR requires an external `tesseract` binary and a silently empty extraction is worse than an explicit skip.",
+        "`_MAX_INGEST_FILE_BYTES` shall be 10 MB, not 1 MB — a single PDF routinely exceeds the old cap."
+      ],
+      "verify": [],
+      "notes": [],
+      "current_impl": [
+        "`src/consilium/rag.py` (`extract_text`, `_EXTRACTORS`, `_extract_*`, `_MAX_INGEST_FILE_BYTES`)"
+      ],
+      "acc": [
+        "Given an `.html`, `.docx`, `.pdf` or `.csv` file, when `extract_text()` is called, then it returns extracted text (HTML free of `<script>`/`<style>`, CSV a schema summary whose tail rows are absent); an unsupported suffix returns `None`; and a supported suffix with its dependency missing raises `ImportError` naming `consilium-py[docs]` (tested-by `tests/test_rag.py::TestDocumentExtractors`).",
+        "Given an HTML file, when `ingest_path()` runs, then the stored chunk contains the extracted text and NOT the raw markup — the discriminating assertion, since raw `read_text` would also contain the body substring (tested-by `tests/test_rag.py::TestDocumentExtractors::test_ingest_routes_html_through_the_extractor`)."
+      ],
+      "accept": "- Given an `.html`, `.docx`, `.pdf` or `.csv` file, when `extract_text()` is called, then it returns extracted text (HTML free of `<script>`/`<style>`, CSV a schema summary whose tail rows are absent); an unsupported suffix returns `None`; and a supported suffix with its dependency missing raises `ImportError` naming `consilium-py[docs]` (tested-by `tests/test_rag.py::TestDocumentExtractors`).\n- Given an HTML file, when `ingest_path()` runs, then the stored chunk contains the extracted text and NOT the raw markup — the discriminating assertion, since raw `read_text` would also contain the body substring (tested-by `tests/test_rag.py::TestDocumentExtractors::test_ingest_routes_html_through_the_extractor`).",
+      "input": "",
+      "output": "",
+      "desc": "",
+      "deps": [
+        "CPYEXT-RAG-001"
+      ],
+      "depends_on": [
+        "CPYEXT-RAG-001"
+      ],
+      "used_by": [],
+      "satisfies": [],
+      "satisfied_by": [],
+      "members": [
+        {
+          "role": "implements",
+          "loc": "src/consilium/rag.py:118"
+        },
+        {
+          "role": "implements",
+          "loc": "src/consilium/rag.py:170"
+        },
+        {
+          "role": "tested-by",
+          "loc": "tests/test_rag.py:5"
+        }
+      ],
+      "test_exempt": null,
+      "milestone": null,
+      "priority": "",
+      "risks": []
+    },
+    {
+      "id": "CPYEXT-RAGSTORE-001",
+      "layer": "feature",
+      "level": null,
+      "status": "confirmed",
+      "area": "CPYEXT",
+      "title": "RAG storage root, run persistence and tenancy",
+      "intent": "",
+      "contract": [
+        "`save_run(run_id, inp, report)` shall persist `{id, timestamp, proposal, context, report}` to `~/.consilium/runs/<run_id>.json`. The proposal text must be inside the record (not only in the filename).",
+        "The ChromaDB store is global (`~/.consilium/chroma/`). A per-project store (`.consilium/chroma/` in the repo) would be more isolated but requires project-root detection; global is simpler and sufficient for the current scope.",
+        "The storage root shall be resolvable at call time via `runs_dir()` / `chroma_dir()`, which return `$CONSILIUM_HOME/runs` and `$CONSILIUM_HOME/chroma` when `CONSILIUM_HOME` is set and `~/.consilium/...` otherwise. Resolution must be per call, not at import: under a server the process home is the service account's, often ephemeral (containers) or shared, so the location has to be settable from outside the package.",
+        "**Tenancy — two modes.** `index()`, `ingest_path()`, `retrieve()`, `_doc_hits()`, `build_rag_bundle()` and `build_rag_context()` shall accept `tenant: str | None = None`. With `None` no tenant key is written and no tenant clause is applied (the shared single-operator corpus, and the original behaviour). With a tenant string, writes carry `metadata['tenant']` and reads add a `{'tenant': <id>}` clause, so a scoped query returns neither another tenant's records nor untagged ones — fail closed, so pre-tenancy data is never served to a tenant. `ingest_path` shall also scope its stale-chunk `delete` to the tenant, or re-ingesting a same-named file would purge another tenant's chunks.",
+        "The tenant shall be resolved server-side from the authenticated caller (`CONSILIUM_API_KEYS`), never from a request field — otherwise a caller selects their own scope."
+      ],
+      "verify": [],
+      "notes": [],
+      "current_impl": [
+        "`src/consilium/rag.py` (`runs_dir`, `chroma_dir`, `save_run`, `_tenant_clause`, `tenant` parameters)"
+      ],
+      "acc": [
+        "Given `CONSILIUM_HOME` set to a temp dir, when `runs_dir()` / `chroma_dir()` are called, then they resolve beneath it, and `save_run()` writes there rather than under the user's home; unset, they resolve under `~/.consilium` (tested-by `tests/test_rag.py::TestStorageRootOverride`).",
+        "Given `tenant='acme'`, when `index()` / `ingest_path()` are called, then the written metadata carries `tenant='acme'`; with `tenant=None` no such key is written; and `retrieve()` / `retrieve_docs()` add a `{'tenant': ...}` clause only when scoped (tested-by `tests/test_rag.py::TestTenantScoping`)."
+      ],
+      "accept": "- Given `CONSILIUM_HOME` set to a temp dir, when `runs_dir()` / `chroma_dir()` are called, then they resolve beneath it, and `save_run()` writes there rather than under the user's home; unset, they resolve under `~/.consilium` (tested-by `tests/test_rag.py::TestStorageRootOverride`).\n- Given `tenant='acme'`, when `index()` / `ingest_path()` are called, then the written metadata carries `tenant='acme'`; with `tenant=None` no such key is written; and `retrieve()` / `retrieve_docs()` add a `{'tenant': ...}` clause only when scoped (tested-by `tests/test_rag.py::TestTenantScoping`).",
+      "input": "",
+      "output": "",
+      "desc": "",
+      "deps": [
+        "CPYEXT-RAG-001"
+      ],
+      "depends_on": [
+        "CPYEXT-RAG-001"
+      ],
+      "used_by": [],
+      "satisfies": [],
+      "satisfied_by": [],
+      "members": [
+        {
+          "role": "implements",
+          "loc": "src/consilium/rag.py:38"
+        },
+        {
+          "role": "implements",
+          "loc": "src/consilium/rag.py:232"
+        },
+        {
+          "role": "implements",
+          "loc": "src/consilium/rag.py:271"
+        },
+        {
+          "role": "tested-by",
+          "loc": "tests/test_rag.py:4"
+        }
+      ],
+      "test_exempt": null,
+      "milestone": null,
+      "priority": "",
+      "risks": []
+    },
+    {
       "id": "CPYMOD-DIA-001",
       "layer": "feature",
+      "level": null,
       "status": "confirmed",
       "area": "CPYMOD",
       "title": "Dialectic deliberation mode — Sequential + Skeptic challenger",
@@ -748,6 +1005,11 @@
         "CPYBUS-VOI-001",
         "CPYBUS-SKEPTIC-001"
       ],
+      "depends_on": [
+        "CPYMOD-SEQ-001",
+        "CPYBUS-VOI-001",
+        "CPYBUS-SKEPTIC-001"
+      ],
       "used_by": [
         "CPYBUS-API-001"
       ],
@@ -771,6 +1033,7 @@
     {
       "id": "CPYMOD-SEQ-001",
       "layer": "feature",
+      "level": null,
       "status": "confirmed",
       "area": "CPYMOD",
       "title": "Sequential deliberation mode",
@@ -801,6 +1064,10 @@
         "CPYBUS-VOI-001",
         "CPYBUS-AGG-001"
       ],
+      "depends_on": [
+        "CPYBUS-VOI-001",
+        "CPYBUS-AGG-001"
+      ],
       "used_by": [
         "CPYBUS-API-001",
         "CPYMOD-DIA-001"
@@ -825,6 +1092,7 @@
     {
       "id": "CPYMOD-TRI-001",
       "layer": "feature",
+      "level": null,
       "status": "confirmed",
       "area": "CPYMOD",
       "title": "Trias deliberation mode — 3 parallel personalities + post-vote Skeptic",
@@ -869,6 +1137,11 @@
         "CPYBUS-AGG-001",
         "CPYBUS-SKEPTIC-001"
       ],
+      "depends_on": [
+        "CPYBUS-VOI-001",
+        "CPYBUS-AGG-001",
+        "CPYBUS-SKEPTIC-001"
+      ],
       "used_by": [
         "CPYBUS-API-001"
       ],
@@ -892,6 +1165,7 @@
     {
       "id": "CPYSRV-AUTH-001",
       "layer": "bus",
+      "level": null,
       "status": "confirmed",
       "area": "CPYSRV",
       "title": "HTTP access control — optional API key and per-caller rate limit",
@@ -925,6 +1199,9 @@
       "deps": [
         "CPYSRV-HTTP-001"
       ],
+      "depends_on": [
+        "CPYSRV-HTTP-001"
+      ],
       "used_by": [],
       "satisfies": [],
       "satisfied_by": [],
@@ -946,6 +1223,7 @@
     {
       "id": "CPYSRV-HTTP-001",
       "layer": "bus",
+      "level": null,
       "status": "confirmed",
       "area": "CPYSRV",
       "title": "HTTP server — POST /deliberate and the / web UI",
@@ -974,6 +1252,9 @@
       "deps": [
         "CPYBUS-API-001"
       ],
+      "depends_on": [
+        "CPYBUS-API-001"
+      ],
       "used_by": [
         "CPYSRV-AUTH-001",
         "CPYSRV-SERVE-001"
@@ -998,6 +1279,7 @@
     {
       "id": "CPYSRV-SERVE-001",
       "layer": "bus",
+      "level": null,
       "status": "confirmed",
       "area": "CPYSRV",
       "title": "serve CLI command — local web UI launcher",
@@ -1028,6 +1310,9 @@
       "deps": [
         "CPYSRV-HTTP-001"
       ],
+      "depends_on": [
+        "CPYSRV-HTTP-001"
+      ],
       "used_by": [],
       "satisfies": [],
       "satisfied_by": [],
@@ -1053,6 +1338,14 @@
       "CPYBUS-VOI-001"
     ],
     [
+      "CPYBUS-AGGREPORT-001",
+      "CPYBUS-AGG-001"
+    ],
+    [
+      "CPYBUS-AGGREPORT-001",
+      "CPYBUS-VOI-001"
+    ],
+    [
       "CPYBUS-API-001",
       "CPYMOD-SEQ-001"
     ],
@@ -1063,6 +1356,14 @@
     [
       "CPYBUS-API-001",
       "CPYMOD-TRI-001"
+    ],
+    [
+      "CPYBUS-APIANSWER-001",
+      "CPYBUS-API-001"
+    ],
+    [
+      "CPYBUS-APIANSWER-001",
+      "CPYBUS-VOI-001"
     ],
     [
       "CPYBUS-CHAT-001",
@@ -1121,6 +1422,14 @@
       "CPYBUS-VOI-001"
     ],
     [
+      "CPYEXT-RAGEXTRACT-001",
+      "CPYEXT-RAG-001"
+    ],
+    [
+      "CPYEXT-RAGSTORE-001",
+      "CPYEXT-RAG-001"
+    ],
+    [
       "CPYMOD-DIA-001",
       "CPYMOD-SEQ-001"
     ],
@@ -1165,5 +1474,497 @@
       "CPYSRV-HTTP-001"
     ]
   ],
-  "todos": []
+  "upstream_edges": [],
+  "todos": [],
+  "roadmap": [],
+  "history": [],
+  "commands": [
+    {
+      "name": "init",
+      "group": "author",
+      "summary": "First-use bootstrap: scaffold requirements/ and .reqmapignore if missing, draft requirements from existing code and prose, build the lock and map, and print guided next steps. Idempotent — safe to re-run; never clobbers an existing .reqmapignore. --plan emits the extraction plan as JSON and writes no requirement files, for looking before authoring.",
+      "arg": null,
+      "flags": [
+        {
+          "flag": "--plan",
+          "help": "Emit the extraction plan as JSON instead of writing requirement files."
+        },
+        {
+          "flag": "--out",
+          "help": "With --plan: write the plan JSON here ('-' or omitted = stdout)."
+        },
+        {
+          "flag": "--md-glob",
+          "help": "With --plan: also scan these non-code globs for capabilities (repeatable)."
+        },
+        {
+          "flag": "--wipe",
+          "help": "Hard-reset: delete all non-generated requirements and strip membership tags from source files before re-extracting."
+        },
+        {
+          "flag": "--no-site",
+          "help": "Skip the final site step (scaffolding docs/architecture.html)."
+        }
+      ]
+    },
+    {
+      "name": "gate",
+      "group": "read",
+      "summary": "The commit/CI verdict. Bare, it verifies that every code tag resolves to a real requirement, that every confirmed requirement has at least one implements: member, and that drift has not been introduced since the last sync, then checks requirement readability and map freshness. Exits non-zero on link-sync errors only. Never writes anything. Three mode flags report on the verdict's own subject instead of running it: --audit for the whole problem report, --risk for what to do next, --show for one requirement's dossier. Every other question is `ask`.",
+      "arg": null,
+      "flags": [
+        {
+          "flag": "--audit",
+          "help": "Print every pass that discovers a problem as one report: the gate, corpus risk, duplicate contracts, design signals and tag coverage. The exit code still comes from the gate alone."
+        },
+        {
+          "flag": "--risk",
+          "help": "Print the corpus risk snapshot and the actionable signals, most urgent first."
+        },
+        {
+          "flag": "--show",
+          "help": "Print one requirement's dossier: intent, contract, dependencies both ways, code members with file:line, open questions and risk signals."
+        },
+        {
+          "flag": "--all",
+          "help": "With --risk: expand every bucket instead of the top few."
+        },
+        {
+          "flag": "--untagged",
+          "help": "With --risk: report membership-tag coverage per directory."
+        },
+        {
+          "flag": "--badge",
+          "help": "With --risk: print the coherence score as a badge string."
+        },
+        {
+          "flag": "--strict",
+          "help": "Promote drift and test-link integrity warnings to errors. Useful in CI when all requirements are confirmed."
+        },
+        {
+          "flag": "--json",
+          "help": "Emit structured JSON output instead of human-readable text."
+        },
+        {
+          "flag": "--since",
+          "help": "Scope the gate to requirements whose member files changed since this git ref (e.g. 'main', 'HEAD~1')."
+        },
+        {
+          "flag": "--no-lint",
+          "help": "Skip the requirement readability check."
+        },
+        {
+          "flag": "--no-map-check",
+          "help": "Skip the committed-map freshness check."
+        }
+      ]
+    },
+    {
+      "name": "ask",
+      "group": "read",
+      "summary": "Ask the corpus a question without running the verdict. Read-only, never writes, and its exit code is the question's, never the gate's: --search ranks requirements by relevance, --dupes ranks overlapping contracts, --design reviews the code, --review emits the machine-readable review plan, --i18n lists missing translations. Exactly one mode per call. Since v8.0.0, `gate` refuses these flags and names `ask`.",
+      "arg": null,
+      "flags": [
+        {
+          "flag": "--search",
+          "help": "Rank requirements by lexical relevance to a free-text query."
+        },
+        {
+          "flag": "--dupes",
+          "help": "Rank requirement pairs whose contracts overlap, most similar first."
+        },
+        {
+          "flag": "--design",
+          "help": "Print the advisory design review of the code. Never part of the verdict."
+        },
+        {
+          "flag": "--review",
+          "help": "Emit the deterministic review plan as JSON: for one requirement, or with no id for the whole corpus."
+        },
+        {
+          "flag": "--i18n",
+          "help": "List the translations the configured LANGUAGE (en | ro | both, in requirements/_config.json) expects and does not have, missing or stale. --json emits each entry's source fields and cache key for whoever translates."
+        },
+        {
+          "flag": "--top",
+          "help": "With --search or --dupes: how many results to print."
+        },
+        {
+          "flag": "--threshold",
+          "help": "With --dupes: override the similarity threshold."
+        },
+        {
+          "flag": "--json",
+          "help": "Emit structured JSON output instead of human-readable text."
+        }
+      ]
+    },
+    {
+      "name": "sync",
+      "group": "build",
+      "summary": "The write path. Rescan code members, advance the drift baseline, and regenerate the map, the findings file and the generated integration artifacts in one step. Run after editing requirement files or tagging new code members. --accept-drift is required when a confirmed or implemented contract changed.",
+      "arg": null,
+      "flags": [
+        {
+          "flag": "--retire",
+          "help": "Take these requirements out of service instead of confirming them. Accepts one id or many; a batch retires in an order computed from the graph, under one working-tree check. Prints the blast radius; writes nothing without --apply."
+        },
+        {
+          "flag": "--release",
+          "help": "Cut a release instead of syncing: the next version planned in _planning.json above what is already declared, or the vX.Y.Z named here. Prints the plan - version files to bump, the CHANGELOG entry, the milestone the plan drops - and writes nothing without --apply. With --json it also reports the declared version, whether its tag exists and its notes, which is what a release workflow reads."
+        },
+        {
+          "flag": "--delete",
+          "help": "With --retire: also remove the block, its lock entries and its membership tags. Never a function body."
+        },
+        {
+          "flag": "--apply",
+          "help": "With --retire or --release: actually write the change. Without it, the run is a dry report."
+        },
+        {
+          "flag": "--force",
+          "help": "With --retire: proceed even though dependents still point at this requirement, or the working tree is dirty. Dependents that are already deprecated, and those retired in the same call, never block."
+        },
+        {
+          "flag": "--findings",
+          "help": "Also regenerate the aggregated open-questions file."
+        },
+        {
+          "flag": "--attach",
+          "help": "Target HTML to inject the site's engine-owned regions into (scaffolds it if absent)."
+        },
+        {
+          "flag": "--accept-drift",
+          "help": "Explicitly advance the baseline when a confirmed or implemented contract changed. Required when those contracts differ from the lock; sync exits non-zero without it. Takes an optional reason, recorded in requirements/_driftlog.json so the waiver and its justification land in the diff."
+        },
+        {
+          "flag": "--strict",
+          "help": "Promote drift and test-link integrity from warn to error."
+        },
+        {
+          "flag": "--json",
+          "help": "With --retire or --release: emit the plan as JSON."
+        }
+      ]
+    },
+    {
+      "name": "clarify",
+      "group": "author",
+      "summary": "Ask what a requirement has not answered yet: vague terms with no threshold, numbers with no unit, unbounded quantities, clauses with no case, a missing failure path. Read-only, always exit 0, never a gate rule. --decompose is the write half of the same question: it splits a requirement into code-rung children along the bold group labels in its Description (--apply writes), or scaffolds one draft per over-long clause when it has none. Run it before implementing, so the ambiguity is resolved in the requirement instead of guessed in code.",
+      "arg": "AREA-NAME-NNN",
+      "flags": [
+        {
+          "flag": "--decompose",
+          "help": "Split a requirement into code-rung children along the bold group labels its author wrote in the Description; --apply writes them and rewrites the parent. With no id, every requirement carrying groups. A requirement with no groups falls back to one draft per over-long clause."
+        },
+        {
+          "flag": "--levels",
+          "help": "Propose a V-model rung for every requirement that declares no `level:`, plus the rungs above: one draft `ARCH-<FAMILY>-001` per id-prefix family, `SYS-NEEDS-A-NAME-001` at the apex, and the `satisfies:` edges between them. --apply writes all of it, each line marked `level_source: auto`."
+        },
+        {
+          "flag": "--json",
+          "help": "Emit the questions as JSON for an agent to answer."
+        },
+        {
+          "flag": "--apply",
+          "help": "With --decompose or --levels: write the proposal instead of printing it."
+        }
+      ]
+    },
+    {
+      "name": "mcp",
+      "group": "read",
+      "summary": "Serve this repository's requirements to an AI assistant over the Model Context Protocol (stdio). Each tool is one reqmap invocation in a fresh process. Read-only unless --allow-writes.",
+      "arg": null,
+      "flags": [
+        {
+          "flag": "--allow-writes",
+          "help": "Also offer the tools that write: sync, new and release."
+        }
+      ]
+    }
+  ],
+  "design": {
+    "files": 18,
+    "clean_files": 3,
+    "score": 17,
+    "candidates": {
+      "encapsulation": 5,
+      "abstraction": 4,
+      "inheritance": 0,
+      "polymorphism": 1,
+      "metrics": 0,
+      "standards": 20
+    },
+    "findings": [
+      {
+        "pillar": "standards",
+        "kind": "missing-docstring",
+        "file": "scripts/eval_rag.py",
+        "line": 59,
+        "name": "main",
+        "detail": "1 public definition(s) without a docstring: main"
+      },
+      {
+        "pillar": "standards",
+        "kind": "line-too-long",
+        "file": "scripts/make_diagram.py",
+        "line": 101,
+        "name": "make_diagram.py",
+        "detail": "11 line(s) wider than 100 columns, first at line 101"
+      },
+      {
+        "pillar": "encapsulation",
+        "kind": "long-parameter-list",
+        "file": "src/consilium/__init__.py",
+        "line": 17,
+        "name": "deliberate",
+        "detail": "`deliberate` takes 7 parameters (over 6)"
+      },
+      {
+        "pillar": "standards",
+        "kind": "missing-docstring",
+        "file": "src/consilium/__init__.py",
+        "line": 17,
+        "name": "deliberate",
+        "detail": "1 public definition(s) without a docstring: deliberate"
+      },
+      {
+        "pillar": "polymorphism",
+        "kind": "type-switch",
+        "file": "src/consilium/__init__.py",
+        "line": 37,
+        "name": "mode",
+        "detail": "4 branches test `mode` in one chain"
+      },
+      {
+        "pillar": "abstraction",
+        "kind": "long-function",
+        "file": "src/consilium/aggregator.py",
+        "line": 58,
+        "name": "_run_sequential_scheme",
+        "detail": "`_run_sequential_scheme` is 173 lines (over 80)"
+      },
+      {
+        "pillar": "standards",
+        "kind": "line-too-long",
+        "file": "src/consilium/aggregator.py",
+        "line": 131,
+        "name": "aggregator.py",
+        "detail": "5 line(s) wider than 100 columns, first at line 131"
+      },
+      {
+        "pillar": "standards",
+        "kind": "line-too-long",
+        "file": "src/consilium/cli.py",
+        "line": 176,
+        "name": "cli.py",
+        "detail": "1 line(s) wider than 100 columns, first at line 176"
+      },
+      {
+        "pillar": "encapsulation",
+        "kind": "long-parameter-list",
+        "file": "src/consilium/cli.py",
+        "line": 282,
+        "name": "deliberate_cmd",
+        "detail": "`deliberate_cmd` takes 7 parameters (over 6)"
+      },
+      {
+        "pillar": "standards",
+        "kind": "missing-docstring",
+        "file": "src/consilium/errors.py",
+        "line": 10,
+        "name": "is_provider_error",
+        "detail": "1 public definition(s) without a docstring: is_provider_error"
+      },
+      {
+        "pillar": "standards",
+        "kind": "missing-docstring",
+        "file": "src/consilium/models.py",
+        "line": 9,
+        "name": "ExplainReport",
+        "detail": "5 public definition(s) without a docstring: ExplainReport, DeliberationInput, VoiceOutput, SkepticObjection, Report"
+      },
+      {
+        "pillar": "standards",
+        "kind": "file-too-long",
+        "file": "src/consilium/rag.py",
+        "line": 1,
+        "name": "rag.py",
+        "detail": "534 lines (over 500)"
+      },
+      {
+        "pillar": "standards",
+        "kind": "missing-docstring",
+        "file": "src/consilium/rag.py",
+        "line": 228,
+        "name": "new_run_id",
+        "detail": "1 public definition(s) without a docstring: new_run_id"
+      },
+      {
+        "pillar": "encapsulation",
+        "kind": "data-clump",
+        "file": "src/consilium/rag.py",
+        "line": 321,
+        "name": "retrieve",
+        "detail": "k, max_distance, proposal, tenant travel together through 3 functions: _doc_hits, retrieve, retrieve_docs"
+      },
+      {
+        "pillar": "standards",
+        "kind": "line-too-long",
+        "file": "src/consilium/rag.py",
+        "line": 493,
+        "name": "rag.py",
+        "detail": "1 line(s) wider than 100 columns, first at line 493"
+      },
+      {
+        "pillar": "standards",
+        "kind": "missing-docstring",
+        "file": "src/consilium/server.py",
+        "line": 143,
+        "name": "DeliberateRequest",
+        "detail": "4 public definition(s) without a docstring: DeliberateRequest, AskRequest, ui, run_deliberate"
+      },
+      {
+        "pillar": "standards",
+        "kind": "line-too-long",
+        "file": "src/consilium/server.py",
+        "line": 169,
+        "name": "server.py",
+        "detail": "13 line(s) wider than 100 columns, first at line 169"
+      },
+      {
+        "pillar": "standards",
+        "kind": "line-too-long",
+        "file": "src/consilium/skeptic.py",
+        "line": 55,
+        "name": "skeptic.py",
+        "detail": "1 line(s) wider than 100 columns, first at line 55"
+      },
+      {
+        "pillar": "encapsulation",
+        "kind": "global-state",
+        "file": "src/consilium/voices.py",
+        "line": 20,
+        "name": "_get_client",
+        "detail": "`_get_client` writes module state: _client"
+      },
+      {
+        "pillar": "standards",
+        "kind": "missing-docstring",
+        "file": "src/consilium/voices.py",
+        "line": 27,
+        "name": "load_prompt",
+        "detail": "2 public definition(s) without a docstring: load_prompt, call_voice"
+      },
+      {
+        "pillar": "abstraction",
+        "kind": "long-function",
+        "file": "src/consilium/voices.py",
+        "line": 121,
+        "name": "call_voice",
+        "detail": "`call_voice` is 91 lines (over 80)"
+      },
+      {
+        "pillar": "standards",
+        "kind": "line-too-long",
+        "file": "src/consilium/voices.py",
+        "line": 141,
+        "name": "voices.py",
+        "detail": "1 line(s) wider than 100 columns, first at line 141"
+      },
+      {
+        "pillar": "standards",
+        "kind": "missing-docstring",
+        "file": "src/consilium/modes/dialectic.py",
+        "line": 7,
+        "name": "run_dialectic",
+        "detail": "1 public definition(s) without a docstring: run_dialectic"
+      },
+      {
+        "pillar": "standards",
+        "kind": "missing-docstring",
+        "file": "src/consilium/modes/langgraph_mode.py",
+        "line": 19,
+        "name": "DeliberationState",
+        "detail": "1 public definition(s) without a docstring: DeliberationState"
+      },
+      {
+        "pillar": "encapsulation",
+        "kind": "global-state",
+        "file": "src/consilium/modes/langgraph_mode.py",
+        "line": 83,
+        "name": "_get_graph",
+        "detail": "`_get_graph` writes module state: _graph"
+      },
+      {
+        "pillar": "standards",
+        "kind": "missing-docstring",
+        "file": "src/consilium/modes/sequential.py",
+        "line": 7,
+        "name": "run_sequential",
+        "detail": "1 public definition(s) without a docstring: run_sequential"
+      },
+      {
+        "pillar": "abstraction",
+        "kind": "deep-nesting",
+        "file": "src/consilium/modes/trias.py",
+        "line": 144,
+        "name": "run_trias",
+        "detail": "`run_trias` nests 5 levels deep (over 4)"
+      },
+      {
+        "pillar": "abstraction",
+        "kind": "long-function",
+        "file": "src/consilium/modes/trias.py",
+        "line": 144,
+        "name": "run_trias",
+        "detail": "`run_trias` is 99 lines (over 80)"
+      },
+      {
+        "pillar": "standards",
+        "kind": "missing-docstring",
+        "file": "src/consilium/modes/trias.py",
+        "line": 144,
+        "name": "run_trias",
+        "detail": "1 public definition(s) without a docstring: run_trias"
+      },
+      {
+        "pillar": "standards",
+        "kind": "line-too-long",
+        "file": "src/consilium/modes/trias.py",
+        "line": 226,
+        "name": "trias.py",
+        "detail": "1 line(s) wider than 100 columns, first at line 226"
+      }
+    ],
+    "advice": {
+      "data-clump": "the same parameters travel through several functions: make them one object with those functions as methods",
+      "deep-nesting": "nesting this deep hides the main path: return early, or extract the inner block",
+      "file-too-long": "a file this long is several modules sharing a name: split it along the prefix families it already shows",
+      "global-state": "module state mutated from inside a function has no owner: hold it in an object, or pass it in and return it",
+      "line-too-long": "lines wider than the limit hide their tail in every diff and side-by-side view: wrap them",
+      "long-function": "a function this long hides several steps: extract each step under a name that says what it does",
+      "long-parameter-list": "a parameter list this long is an object waiting to be named: group the parameters that travel together",
+      "missing-docstring": "a public name without a docstring makes every caller read the body: one sentence saying what it returns is enough",
+      "type-switch": "a chain of equality tests on one value is a dispatch table: a dict of handlers, or a method per case"
+    }
+  },
+  "health": {
+    "score": 100,
+    "total": 21,
+    "scored": 21,
+    "healthy": 21,
+    "deprecated": 0,
+    "confirmed": 21,
+    "implemented": 21,
+    "tested": 21,
+    "drafts": 0,
+    "orphans": 0,
+    "untested": 0,
+    "open_intent": 0,
+    "drift": 0,
+    "gate_errors": 0,
+    "gate_link_sync_clean": true
+  }
 }

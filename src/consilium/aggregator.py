@@ -35,6 +35,7 @@ def _any_irreversibility_flag(conservator_out: dict) -> tuple[bool, str | None]:
 
 
 def _chosen_candidate(generator_out: dict, chosen_id: str | None) -> dict:
+    # implements: CPYBUS-AGGREPORT-001
     """Return the Generator candidate dict matching chosen_id (or {})."""
     if not chosen_id:
         return {}
@@ -232,6 +233,7 @@ def _run_sequential_scheme(
 # ── voice-output → VoiceOutput ───────────────────────────────────────────────
 
 def _extract_voice_output(name: str, voice_out: dict, raw_text: str) -> VoiceOutput:
+    # implements: CPYBUS-AGGREPORT-001
     reasoning = raw_text[:800]
 
     if name == "conservator":

@@ -1,0 +1,73 @@
+{
+  "_schema": 1,
+  "accepted": {
+    "CPYBUS-AGG-001": {
+      "hash": "eb4d36a21631",
+      "reason": "split over-sized requirements (AGG, API, RAG) verbatim into children; fix two cross-references to the moved ANSWER content"
+    },
+    "CPYBUS-API-001": {
+      "hash": "601ea25d7884",
+      "reason": "split over-sized requirements (AGG, API, RAG) verbatim into children; fix two cross-references to the moved ANSWER content"
+    },
+    "CPYBUS-CHAT-001": {
+      "hash": "6588881642c0",
+      "reason": "re-vendor reqmap engine 2026-06-19.1 -> 2026-09-21.1 (v8.0.0): binding hash scheme changed, contract text did not"
+    },
+    "CPYBUS-CLI-001": {
+      "hash": "e0db8e3dc92d",
+      "reason": "split over-sized requirements (AGG, API, RAG) verbatim into children; fix two cross-references to the moved ANSWER content"
+    },
+    "CPYBUS-EXPLAIN-001": {
+      "hash": "f7439c909386",
+      "reason": "re-vendor reqmap engine 2026-06-19.1 -> 2026-09-21.1 (v8.0.0): binding hash scheme changed, contract text did not"
+    },
+    "CPYBUS-SKEPTIC-001": {
+      "hash": "ddbe443f1c95",
+      "reason": "re-vendor reqmap engine 2026-06-19.1 -> 2026-09-21.1 (v8.0.0): binding hash scheme changed, contract text did not"
+    },
+    "CPYBUS-VOI-001": {
+      "hash": "566544e278a0",
+      "reason": "re-vendor reqmap engine 2026-06-19.1 -> 2026-09-21.1 (v8.0.0): binding hash scheme changed, contract text did not"
+    },
+    "CPYEXT-DOCRAG-001": {
+      "hash": "1d1b24114414",
+      "reason": "re-vendor reqmap engine 2026-06-19.1 -> 2026-09-21.1 (v8.0.0): binding hash scheme changed, contract text did not"
+    },
+    "CPYEXT-LG-001": {
+      "hash": "f723609cdd89",
+      "reason": "re-vendor reqmap engine 2026-06-19.1 -> 2026-09-21.1 (v8.0.0): binding hash scheme changed, contract text did not"
+    },
+    "CPYEXT-LTL-001": {
+      "hash": "021df28fdc6a",
+      "reason": "re-vendor reqmap engine 2026-06-19.1 -> 2026-09-21.1 (v8.0.0): binding hash scheme changed, contract text did not"
+    },
+    "CPYEXT-RAG-001": {
+      "hash": "30e0007af39a",
+      "reason": "split over-sized requirements (AGG, API, RAG) verbatim into children; fix two cross-references to the moved ANSWER content"
+    },
+    "CPYMOD-DIA-001": {
+      "hash": "2803ac3f9a38",
+      "reason": "re-vendor reqmap engine 2026-06-19.1 -> 2026-09-21.1 (v8.0.0): binding hash scheme changed, contract text did not"
+    },
+    "CPYMOD-SEQ-001": {
+      "hash": "0e97aa877c7d",
+      "reason": "re-vendor reqmap engine 2026-06-19.1 -> 2026-09-21.1 (v8.0.0): binding hash scheme changed, contract text did not"
+    },
+    "CPYMOD-TRI-001": {
+      "hash": "583dbb538465",
+      "reason": "re-vendor reqmap engine 2026-06-19.1 -> 2026-09-21.1 (v8.0.0): binding hash scheme changed, contract text did not"
+    },
+    "CPYSRV-AUTH-001": {
+      "hash": "6ef923adcc88",
+      "reason": "re-vendor reqmap engine 2026-06-19.1 -> 2026-09-21.1 (v8.0.0): binding hash scheme changed, contract text did not"
+    },
+    "CPYSRV-HTTP-001": {
+      "hash": "6b1f43a334ad",
+      "reason": "re-vendor reqmap engine 2026-06-19.1 -> 2026-09-21.1 (v8.0.0): binding hash scheme changed, contract text did not"
+    },
+    "CPYSRV-SERVE-001": {
+      "hash": "9603841c7d24",
+      "reason": "re-vendor reqmap engine 2026-06-19.1 -> 2026-09-21.1 (v8.0.0): binding hash scheme changed, contract text did not"
+    }
+  }
+}

@@ -1,6 +1,7 @@
 """Unit tests for sequential mode — voices mocked, no API calls."""
 # tested-by: CPYMOD-SEQ-001
 # tested-by: CPYBUS-AGG-001
+# tested-by: CPYBUS-AGGREPORT-001
 import json
 import unittest
 from pathlib import Path

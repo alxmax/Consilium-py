@@ -1,0 +1,35 @@
+---
+id: CPYBUS-AGGREPORT-001
+status: confirmed
+layer: bus
+owner: human
+depends_on: [CPYBUS-AGG-001, CPYBUS-VOI-001]
+---
+
+# Sequential aggregation — Report assembly
+
+Assembles the `Report` returned by `aggregate_sequential` from the parsed voice outputs and the veto-cascade result of CPYBUS-AGG-001: per-voice `VoiceOutput`s, the chosen candidate's detail, the machine-readable `reason`, and the names of voices that failed to parse.
+
+## WHAT — Contract
+
+- A voice output that is not its own envelope shall short-circuit to `BLOCK` with reason `voice_unparseable`, and the failing voice names shall be surfaced on `Report.voices_failed` (empty on every other outcome). Membership is decided by `looks_like_envelope` (CPYBUS-VOI-001), not by truthiness: `extract_json` can recover a nested FRAGMENT from a truncated reply, and such a fragment is truthy, so a `not out` test lets it through and the cascade proceeds with `candidates=[]` / `preferred=None` — a silently wrong-shaped deliberation instead of a block. `call_voice` retries on the same predicate; this check is the backstop for retries exhausted.
+- The returned `Report` shall contain one `VoiceOutput` per voice (conservator, generator, control) with `vote`, `score`, `reasoning`, and `concerns` fields populated from the parsed JSON.
+- When the aggregation result names a chosen candidate (`chosen`), the `Report` shall also surface that candidate's "how to implement" detail so a `GO`/`MODIFY` verdict carries actionable guidance, not just a verdict line. The aggregator looks up the Generator candidate whose `id` equals the chosen id — scanning the Generator's `options`, falling back to the legacy `candidates` key — and copies its `summary` → `chosen_summary`, its `sketch` (or, for legacy/fixture outputs, `description`) → `chosen_sketch`, and its `rationale` → `chosen_rationale`. When no candidate is chosen, or none matches the chosen id, all three are `None`.
+- The `Report.reason` field shall carry the machine-readable bypass reason from the aggregation result — one of `voice_unparseable`, `glossary_fail`, `irreversibility_no_consent`, `not_a_proposal`, `multiple_triggers`, `substantial_disagreement`, `no_data`, `scale_down`, or `scale_up` — or `None` on a normal `AGGREGATE`-path verdict. This lets callers (e.g. `deliberate()`'s ANSWER and short-response conversions) branch on the cause without parsing the human-facing `recommendation` text. **Every** short-circuit shall set one: several bypasses share a verdict (`ADAPT_EXTENDED` and `REWORK` both surface as `MODIFY` at confidence `0.1`), so a `None` reason leaves a caller unable to tell them apart except by matching the English `action` prose.
+
+## WHAT — Verify intent
+
+None — doc is unambiguous.
+
+## HOW — Acceptance
+
+- Given a Generator output whose chosen candidate carries `summary`, `sketch`, and `rationale`, when `aggregate_sequential` is called, then `Report.chosen_summary`, `chosen_sketch`, and `chosen_rationale` carry that candidate's detail (tested-by `tests/test_sequential.py::TestRunSequential::test_chosen_sketch_surfaced`).
+- Given the `not_a_proposal` short-circuit, when `aggregate_sequential` is called, then `Report.reason == "not_a_proposal"` and `Report.chosen_sketch` is `None` — a non-proposal BLOCK has no chosen approach to sketch (tested-by `tests/test_sequential.py::TestRunSequential::test_not_a_proposal_sets_machine_reason` and `test_chosen_sketch_absent_on_block`).
+
+- Given any short-circuit of the veto cascade, when `aggregate_sequential` is called, then `Report.reason` is non-null and equals that branch's documented reason string — checked across all nine bypasses (tested-by `tests/test_sequential.py::TestRunSequential::test_every_bypass_sets_machine_reason` and `test_scale_up_sets_machine_reason`).
+
+- Given a Generator reply truncated into a nested fragment, when `aggregate_sequential` is called, then verdict is `BLOCK`, `Report.reason == "voice_unparseable"`, and `Report.voices_failed == ["generator"]`; on a healthy run `voices_failed` is empty and an abstain-only Generator with an empty `candidates` list is not mistaken for truncation (tested-by `tests/test_sequential.py::TestRunSequential::test_truncated_voice_blocks_instead_of_degrading_silently`, `test_block_names_which_voice_failed`, `test_voices_failed_is_empty_on_a_healthy_run`, `test_empty_candidate_list_is_not_mistaken_for_truncation`).
+
+## WHERE — Current implementation
+
+- `src/consilium/aggregator.py`

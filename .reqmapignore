@@ -1,4 +1,5 @@
 scripts/reqmap.py
+scripts/reqmap_engine/**
 scripts/_map_viewer.html
 .venv/**
 .venv

@@ -14,7 +14,7 @@ Exposes the deliberation engine as a terminal command (`consilium`) with two sub
 
 - `consilium deliberate "<proposal>"` shall call `deliberate()` with the given proposal and print verdict, confidence, mode, and recommendation in text format, or full JSON with `--output json`.
 - For an actionable verdict (`GO` or `MODIFY`) whose `Report` carries a `chosen_sketch`, text output shall print a "How to implement (`<chosen>`)" block: the `chosen_summary` (when present), the `chosen_sketch`, and the `chosen_rationale` prefixed "Why:". A `STOP`/`BLOCK` verdict carries no chosen approach, so the block is suppressed.
-- When the report's verdict is `ANSWER` — a non-deliberation input (greeting / chit-chat) answered directly, see CPYBUS-API-001 — text output shall print only the reply (`recommendation`), with no verdict / confidence / mode header and no how-to-implement block.
+- When the report's verdict is `ANSWER` — a non-deliberation input (greeting / chit-chat) answered directly, see CPYBUS-APIANSWER-001 — text output shall print only the reply (`recommendation`), with no verdict / confidence / mode header and no how-to-implement block.
 - `--context <path>` (repeatable) shall read each file and concatenate its content into the `context` argument. Multiple `-c` flags are supported.
 - `--mode` shall accept `sequential` (default), `dialectic`, `trias`, and `langgraph`.
 - `--model` shall default to `claude-sonnet-4-6` and also read the `CONSILIUM_MODEL` env var (Click `envvar=`), making `export CONSILIUM_MODEL=openai/gpt-4o` equivalent to `--model openai/gpt-4o`.

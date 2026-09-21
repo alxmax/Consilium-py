@@ -39,14 +39,8 @@ jobs:
       # Deliberately a @vN MAJOR ALIAS, not a SHA, unlike every other action here: the
       # point of this pin is to consume requirement-manager the way its docs tell a
       # consumer to, so a break in that published interface shows up here. The action
-      # runs THIS repo's vendored scripts/reqmap.py and brings its own setup-python,
-      # which is why the step below still finds a `python` on PATH.
-      - uses: alxmax/requirement-manager/check@v7
+      # runs THIS repo's vendored scripts/reqmap.py (+ scripts/reqmap_engine/) and brings
+      # its own setup-python.
+      - uses: alxmax/requirement-manager/check@v8
         with:
           python-version: "3.12"
-      # Kept until the vendored engine is re-seeded: this copy is 2026-06-19.1, older
-      # than v4.0.0, so its bare `gate` does not yet fold in map freshness the way the
-      # action's `freshness: true` default assumes. Drop this step in the same commit
-      # that re-vendors reqmap.py.
-      - name: Requirement map freshness
-        run: python -X utf8 scripts/reqmap.py map --check

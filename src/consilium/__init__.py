@@ -46,6 +46,7 @@ def deliberate(
     else:
         raise ValueError(f"Unknown mode: {mode!r}. Supported: {', '.join(_SUPPORTED_MODES)}")
 
+    # implements: CPYBUS-APIANSWER-001
     # A non-deliberation input (greeting / chit-chat / empty) is not BLOCKed — it
     # is answered directly. The Generator flags these `not_a_proposal`; here we
     # replace that BLOCK sentinel with a plain ANSWER so every mode behaves the
