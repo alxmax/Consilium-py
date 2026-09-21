@@ -1,29 +1,37 @@
 {
-  "_schema": 1,
+  "_schema": 2,
   "members": {
     "CPYBUS-AGG-001": {
-      "src/consilium/aggregator.py": "768f2bb929d339f8f46d749cd55065a218d6147dbfd63279f1d2cced26c0c9d1"
+      "src/consilium/aggregator.py": "064bd044182d993fcc7947367101f853066ad7e42892e557cbf1e57aaafdfe81"
+    },
+    "CPYBUS-AGGREPORT-001": {
+      "src/consilium/aggregator.py#_chosen_candidate": "14ee55b8a90c193fc156068c24b09cf55511e9a643927bf7bd7b71bcaf2d0119",
+      "src/consilium/aggregator.py#_extract_voice_output": "12f52834f9f3700f13dc2742876eb5418cf6e0e57e2d8e1ef3fc13cec550c854"
+    },
+    "CPYBUS-APIANSWER-001": {
+      "src/consilium/__init__.py#deliberate": "a2dd0f12f2a00a19e2e4e79c1de077f8300f38e37c1c64f24c32a544902158c7"
     },
     "CPYBUS-CHAT-001": {
-      "src/consilium/chat.py": "09763c8682879a33fa1376d52ec9ab93f914ede450ba2aa4c01fc1dbecfd8a35"
+      "src/consilium/chat.py": "f71247d07f47b9c2caee61029586bc432f4b974f10925baa848516bde77d897e",
+      "src/consilium/server.py#run_ask": "db36b7a7cec472ae438bb643fcbd81c1f0b6d7439fcda19137cf31a6dffbb5d1"
     },
     "CPYBUS-EXPLAIN-001": {
-      "src/consilium/explain.py": "56bdf45ab315ead372c7b6d06be8af24737c70fdfbd70a4ff11615f6e0b72437"
+      "src/consilium/explain.py": "0cd997ad77099598cae85a2b23d8c92bb09dee5ec5d91c498b2ee844a912e230"
     },
     "CPYBUS-SKEPTIC-001": {
-      "src/consilium/skeptic.py": "9b48ca00e70631ee3c5635cc4d14c1385df4c8314323bc9ac09c68b1c12ae853"
+      "src/consilium/skeptic.py": "6105a4245c340f81f9bbb7d7af83004406da5d664fdb8d089f01de261a553072"
     },
     "CPYEXT-LG-001": {
-      "src/consilium/modes/langgraph_mode.py": "f773d11cfe55b45fab2a7fa337f6067cdbeeafd8e832be5d90e7f569b423f5a7"
+      "src/consilium/modes/langgraph_mode.py": "ba8c03dbdaf27ade50e41f86f5e8b18b2eaa65467de3331a4f5c6a1c1273984d"
     },
     "CPYMOD-DIA-001": {
-      "src/consilium/modes/dialectic.py": "48edca45d549c45cbb833579bd5b033041e09ec6b70598bbfe5a3994e87c02b8"
+      "src/consilium/modes/dialectic.py": "3d2427918be87a265341a9f8976c298e984dbba0b7c4215486c49e5cd4eabc31"
     },
     "CPYMOD-SEQ-001": {
-      "src/consilium/modes/sequential.py": "de17587b0ae387950c989adba9f92c0e24bd3efe1e7e793e73fe385729d85203"
+      "src/consilium/modes/sequential.py": "29609de6a3f580913c01f212fe1b2c935f2615ad2d4b9902eabe5106c84f8b1e"
     },
     "CPYMOD-TRI-001": {
-      "src/consilium/modes/trias.py": "740dbae1a32eb6d11185194f89ae82fa35fc01c91492ca7de21389131cd6ff87"
+      "src/consilium/modes/trias.py": "9c2a18b12e58dff93ad4d7ea0fada924188f1341893d5c8bd5a9ccb8af887a9e"
     }
   }
 }

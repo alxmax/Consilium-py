@@ -35,6 +35,7 @@ _RUNS_DIR = Path.home() / ".consilium" / "runs"
 _CHROMA_DIR = Path.home() / ".consilium" / "chroma"
 
 
+# implements: CPYEXT-RAGSTORE-001
 def runs_dir() -> Path:
     """Directory for raw run JSON. `CONSILIUM_HOME` overrides the default.
 
@@ -114,6 +115,7 @@ def _extract_pdf(path: Path) -> str:
         return "\n".join(str(page.get_text()) for page in doc)
 
 
+# implements: CPYEXT-RAGEXTRACT-001
 def _extract_csv(path: Path) -> str:
     """Describe a CSV's *structure*; deliberately do not embed its rows.
 
@@ -165,6 +167,7 @@ _EXTRACTORS: dict[str, "Callable[[Path], str]"] = {
 _INGESTABLE_SUFFIXES = _PLAIN_TEXT_SUFFIXES | set(_EXTRACTORS)
 
 
+# implements: CPYEXT-RAGEXTRACT-001
 def extract_text(path: Path) -> str | None:
     """Return the ingestable text of `path`, or None if the format is unsupported.
 
@@ -226,6 +229,7 @@ def new_run_id() -> str:
     return uuid.uuid4().hex
 
 
+# implements: CPYEXT-RAGSTORE-001
 def save_run(run_id: str, inp: "DeliberationInput", report: "Report") -> Path:
     """Persist {id, timestamp, proposal, context, report} to ~/.consilium/runs/<id>.json."""
     runs = runs_dir()
@@ -264,6 +268,7 @@ def index(
     col.upsert(ids=[run_id], documents=[document], metadatas=[metadata])
 
 
+# implements: CPYEXT-RAGSTORE-001
 def _tenant_clause(tenant: str | None) -> list[dict]:
     """`where` clauses scoping a query to one tenant, or none in shared mode.
 
